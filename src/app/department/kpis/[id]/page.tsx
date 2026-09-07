@@ -32,7 +32,7 @@ export default function KpiDetailsPage() {
   useEffect(() => {
     const found = mockKpis.find(k => k.id === id)
     if (found) {
-      setKpi(found)
+      setTimeout(() => setKpi(found), 0)
     }
   }, [id])
 

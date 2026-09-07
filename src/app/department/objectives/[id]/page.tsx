@@ -36,7 +36,7 @@ export default function ObjectiveDetailsPage() {
     // In a real app, this would be a fetch
     const found = mockObjectives.find(o => o.id === id)
     if (found) {
-      setObjective(found)
+      setTimeout(() => setObjective(found), 0)
     }
   }, [id])
 
@@ -189,7 +189,7 @@ export default function ObjectiveDetailsPage() {
                 <LinkIcon className="h-8 w-8 text-muted-foreground/30 mb-3" />
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">No Linked KPIs</p>
                 <p className="text-xs text-muted-foreground max-w-sm mt-1">
-                  You haven't linked any KPIs to this objective yet. Edit the Objective Plan to link KPIs.
+                  You haven&apos;t linked any KPIs to this objective yet. Edit the Objective Plan to link KPIs.
                 </p>
                 {!isLocked && (
                   <Button variant="outline" size="sm" className="mt-4" onClick={() => setActiveTab("plan")}>

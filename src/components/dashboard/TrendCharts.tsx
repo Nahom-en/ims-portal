@@ -61,13 +61,11 @@ export function TrendCharts({ period }: { period?: string }) {
     
     for (let i = 5; i >= 0; i--) {
       let mIndex = endMonthIndex - i
-      let mYear = parseInt(activeYear)
       if (mIndex < 0) {
         mIndex += 12
-        mYear -= 1
       }
       // Mock the previous scores slightly lower/higher to create a trend line, ending on the actual calculated score
-      const variance = i === 0 ? 0 : Math.floor(Math.random() * 15) - 5
+      const variance = i === 0 ? 0 : Math.floor(0.5 * 15) - 5
       let prevScore = Math.min(100, Math.max(0, score - (i * 2) + variance))
       if (score === 0 && i !== 0) prevScore = 0 // If no data, keep it 0
       
@@ -78,7 +76,7 @@ export function TrendCharts({ period }: { period?: string }) {
     }
     
     return trend
-  }, [period, activeQuarter, activeYear])
+  }, [period, activeQuarter])
 
 
   return (

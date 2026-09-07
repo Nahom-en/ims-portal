@@ -34,7 +34,6 @@ export default function KPITrackingPage() {
   // Reporting Period — will eventually come from the active ReportCycle in DB
   const [activeQuarter, setActiveQuarter] = useState("Q1")
   const [activeYear, setActiveYear] = useState("2026")
-  const periodLabel = `${activeQuarter} ${activeYear}`
 
   const handleDelete = () => {
     if (kpiToDelete) {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, ShieldAlert, Activity, Target, History, Lock } from "lucide-react"
+import { ArrowLeft, ShieldAlert, Activity, History, Lock } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +38,7 @@ export default function RiskDetailsPage() {
   useEffect(() => {
     const found = mockRisks.find(r => r.id === id)
     if (found) {
-      setRisk(found)
+      setTimeout(() => setRisk(found), 0)
     }
   }, [id])
 
