@@ -5,26 +5,45 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 
-export function RiskMatrix({ period, departmentId }: { period?: string, departmentId?: string }) {
+export function RiskMatrix({ period, departmentId, refreshKey }: { period?: string, departmentId?: string, refreshKey?: number }) {
   const [risks, setRisks] = useState<any[]>([])
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    async function fetchRisks() {
+        async function fetchRisks() {
+      // 1. Fetch baseline risks
       let q = supabase.from('risk_definitions').select('id, baseline_severity, baseline_likelihood, risk_procedures!inner(department_id)').eq('is_active', true)
       if (departmentId && departmentId !== 'ALL') {
         q = q.eq('risk_procedures.department_id', departmentId)
       }
-      const { data } = await q
-      if (data) {
-        setRisks(data.map((r: any) => ({
-          severity: r.baseline_severity || 1,
-          likelihood: r.baseline_likelihood || 1
-        })))
+      const { data: baseRisks } = await q
+      
+      if (!baseRisks) return
+
+      // 2. Fetch assessments for the current period to get residual scores
+      let cycleQ = supabase.from('report_cycles').select('id').eq('reporting_period', period || 'Q1 2026')
+      if (departmentId && departmentId !== 'ALL') {
+        cycleQ = cycleQ.eq('department_id', departmentId)
       }
+      const { data: cycles } = await cycleQ
+      
+      let assessments: any[] = []
+      if (cycles && cycles.length > 0) {
+        const cycleIds = cycles.map((c: any) => c.id)
+        const { data: a } = await supabase.from('risk_assessments').select('risk_id, residual_severity, residual_likelihood').in('report_cycle_id', cycleIds)
+        if (a) assessments = a
+      }
+
+      setRisks(baseRisks.map((r: any) => {
+        const assessment = assessments.find(a => a.risk_id === r.id)
+        return {
+          severity: assessment?.residual_severity || r.baseline_severity || 1,
+          likelihood: assessment?.residual_likelihood || r.baseline_likelihood || 1
+        }
+      }))
     }
     fetchRisks()
-  }, [departmentId, period, supabase])
+  }, [departmentId, period, refreshKey, supabase])
 
   const getRiskCount = (likelihood: number, severity: number) => {
     return risks.filter(r => r.likelihood === likelihood && r.severity === severity).length
@@ -49,7 +68,7 @@ export function RiskMatrix({ period, departmentId }: { period?: string, departme
   ]
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1.5">
           <CardTitle>Risk Heatmap</CardTitle>
@@ -65,7 +84,7 @@ export function RiskMatrix({ period, departmentId }: { period?: string, departme
           ))}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {/* h-[300px] matching ChartContainer */}
         <div className="h-[300px] w-full relative pl-6 pb-6 pt-2 pr-2">
           {/* Y-axis label */}

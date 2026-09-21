@@ -37,6 +37,7 @@ const primaryNav = [
 ]
 
 const adminNav = [
+  { title: "Dashboard", url: "/admin", icon: SquaresFourIcon },
   { title: "Users", url: "/admin/users", icon: UsersIcon },
   { title: "Departments", url: "/admin/departments", icon: BuildingsIcon },
 ]

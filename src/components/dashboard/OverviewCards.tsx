@@ -14,59 +14,95 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
   
 
   useEffect(() => {
-    async function fetchData() {
+        async function fetchData() {
       setLoading(true)
+      
+      // 1. Resolve period (e.g. "Q1 2026")
+      const periodStr = period || 'Q1 2026'
+
+      let cycleQ = supabase.from('report_cycles').select('id').eq('reporting_period', periodStr)
+      if (departmentId && departmentId !== 'ALL') {
+        cycleQ = cycleQ.eq('department_id', departmentId)
+      }
+      const { data: cycles } = await cycleQ
+      const cycleIds = cycles ? cycles.map(c => c.id) : []
+
+      // 2. Query basic definitions
       let objQ = supabase.from('objective_definitions').select('id', { count: 'exact' }).eq('is_active', true)
-      let kpiQ = supabase.from('kpi_measurements').select('id, status, kpi_definitions!inner(processes!inner(department_id))', { count: 'exact' })
       let riskQ = supabase.from('risk_definitions').select('id, baseline_severity, baseline_likelihood, risk_procedures!inner(department_id)').eq('is_active', true)
 
-      if (departmentId) {
+      if (departmentId && departmentId !== 'ALL') {
         objQ = objQ.eq('department_id', departmentId)
-        kpiQ = kpiQ.eq('kpi_definitions.processes.department_id', departmentId)
         riskQ = riskQ.eq('risk_procedures.department_id', departmentId)
       }
 
-      const [objs, kpis, risks] = await Promise.all([objQ, kpiQ, riskQ])
+      const [objs, risks] = await Promise.all([objQ, riskQ])
 
-      // Objectives tracking count
+      // 3. Objectives tracking count
       let objOnTrackCount = 0
-      if (objs.data && objs.data.length > 0) {
+      if (objs.data && objs.data.length > 0 && cycleIds.length > 0) {
         const objIds = objs.data.map((o: any) => o.id)
         const { data: trackingData } = await supabase
           .from('objective_tracking')
-          .select('objective_id')
+          .select('objective_id, status_vs_target')
           .in('objective_id', objIds)
+          .in('report_cycle_id', cycleIds)
           .not('status_vs_target', 'is', null)
         
         if (trackingData) {
-          const uniqueObjectivesOnTrack = new Set(trackingData.map(t => t.objective_id))
+          const onTrack = trackingData.filter((t:any) => t.status_vs_target === 'On Track' || t.status_vs_target === 'Achieved')
+          const uniqueObjectivesOnTrack = new Set(onTrack.map((t:any) => t.objective_id))
           objOnTrackCount = uniqueObjectivesOnTrack.size
         }
       }
 
-      const riskData = risks.data || []
-      
+      // 4. KPI Performance
+      let kpiTotalCount = 0
+      let kpiMetCount = 0
+      if (cycleIds.length > 0) {
+        const { data: kpis } = await supabase.from('kpi_measurements').select('status').in('report_cycle_id', cycleIds)
+        if (kpis) {
+          kpiTotalCount = kpis.length
+          kpiMetCount = kpis.filter((k: any) => k.status === 'Achieved' || k.status === 'On Track').length
+        }
+      }
+
+      // 5. Risks
       let riskHigh = 0
       let riskMed = 0
       let riskLow = 0
       
-      riskData.forEach((r: any) => {
-        const s = r.baseline_severity || 1
-        const l = r.baseline_likelihood || 1
-        const score = s * l
-        if (score >= 15) riskHigh++
-        else if (score >= 8) riskMed++
-        else riskLow++
-      })
-
-      const kpiData = kpis.data || []
-      const kpiMet = kpiData.filter((k: any) => k.status === 'Achieved').length
+      const riskData = risks.data || []
+      
+      if (cycleIds.length > 0 && riskData.length > 0) {
+        const { data: assessments } = await supabase.from('risk_assessments').select('risk_id, residual_severity, residual_likelihood').in('report_cycle_id', cycleIds)
+        
+        riskData.forEach((r: any) => {
+          const assessment = assessments?.find((a:any) => a.risk_id === r.id)
+          const s = assessment?.residual_severity || r.baseline_severity || 1
+          const l = assessment?.residual_likelihood || r.baseline_likelihood || 1
+          const score = s * l
+          if (score >= 15) riskHigh++
+          else if (score >= 8) riskMed++
+          else riskLow++
+        })
+      } else {
+        // Fallback to baseline if no assessments
+        riskData.forEach((r: any) => {
+          const s = r.baseline_severity || 1
+          const l = r.baseline_likelihood || 1
+          const score = s * l
+          if (score >= 15) riskHigh++
+          else if (score >= 8) riskMed++
+          else riskLow++
+        })
+      }
 
       setMetrics({
         objTotal: objs.count || 0,
         objOnTrack: objOnTrackCount,
-        kpiTotal: kpis.count || 0,
-        kpiMet: kpiMet,
+        kpiTotal: kpiTotalCount,
+        kpiMet: kpiMetCount,
         riskHigh,
         riskMed,
         riskLow

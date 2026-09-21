@@ -8,10 +8,25 @@ export default async function AdminDashboardPage() {
   // Fetch metrics
   const { count: usersCount } = await supabase.from('employees').select('id', { count: 'exact', head: true })
   const { count: deptsCount } = await supabase.from('departments').select('id', { count: 'exact', head: true })
-  const { count: pendingCount } = await supabase.from('approval_requests').select('id', { count: 'exact', head: true }).eq('status', 'Pending')
+  const { count: pendingCount } = await supabase.from('approval_requests').select('id', { count: 'exact', head: true }).eq('status', 'PENDING_APPROVAL')
 
   // Fetch role distribution
   const { data: roleData } = await supabase.from('employees').select('role')
+  
+  // Fetch Recent Onboarding
+  const { data: recentUsers } = await supabase
+    .from('employees')
+    .select('id, firstname, lastname, email, created_at, departments(department_name)')
+    .order('created_at', { ascending: false })
+    .limit(5)
+    
+  // Fetch Workflow Config Status
+  const { data: depts } = await supabase
+    .from('departments')
+    .select('id, department_name, workflow_templates(id)')
+    
+  const deptsWithWorkflows = depts?.filter(d => d.workflow_templates && d.workflow_templates.length > 0) || []
+  const deptsWithoutWorkflows = depts?.filter(d => !d.workflow_templates || d.workflow_templates.length === 0) || []
   const roleDistribution = {
     'SYSTEM_ADMIN': 0,
     'DEPARTMENT_MANAGER': 0,
@@ -108,13 +123,65 @@ export default async function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="col-span-1 lg:col-span-2">
+          <Card className="col-span-1">
             <CardHeader>
-              <CardTitle className="text-lg">Recent Activity</CardTitle>
-              <CardDescription>System audit trail and administrative actions</CardDescription>
+              <CardTitle className="text-lg">Recent Onboarding</CardTitle>
+              <CardDescription>Latest users added to the system</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Activity logs will be implemented in a future phase.</p>
+              <div className="space-y-4">
+                {recentUsers && recentUsers.length > 0 ? (
+                  recentUsers.map((user: any) => (
+                    <div key={user.id} className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0">
+                      <div>
+                        <p className="text-sm font-medium">{user.firstname} {user.lastname}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
+                          {user.departments?.department_name || "No Dept"}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recent users.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="col-span-1">
+            <CardHeader>
+              <CardTitle className="text-lg">Workflow Configuration</CardTitle>
+              <CardDescription>Departments with active routing</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
+                  <div className="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-400">
+                    <CheckCircleIcon weight="fill" className="h-5 w-5" />
+                    Configured ({deptsWithWorkflows.length})
+                  </div>
+                </div>
+                
+                {deptsWithoutWorkflows.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-t-lg border border-b-0 border-amber-100 dark:border-amber-900/20">
+                      <ShieldWarningIcon weight="fill" className="h-5 w-5" />
+                      Missing Workflows ({deptsWithoutWorkflows.length})
+                    </div>
+                    <div className="border border-amber-100 dark:border-amber-900/20 rounded-b-lg border-t-0 p-3 bg-white dark:bg-zinc-900 space-y-2">
+                      {deptsWithoutWorkflows.map((d: any) => (
+                        <div key={d.id} className="text-sm flex justify-between items-center">
+                          <span className="text-slate-600 dark:text-slate-400">{d.department_name}</span>
+                          <span className="text-xs text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">Action Required</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

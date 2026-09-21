@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { OverviewCards } from "@/components/dashboard/OverviewCards"
-import { TrendCharts } from "@/components/dashboard/TrendCharts"
+import { ObjectiveChart, KpiChart } from "@/components/dashboard/TrendCharts"
 import { RiskMatrix } from "@/components/dashboard/RiskMatrix"
 import { RecentActivity } from "@/components/dashboard/RecentActivity"
 import { PendingActions } from "@/components/dashboard/PendingActions"
@@ -85,7 +85,7 @@ export default function DepartmentDashboardPage() {
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-400 dark:bg-zinc-500"></span>
                 </span>
-                Historical
+                Past
               </Badge>
             )}
           </div>
@@ -136,34 +136,35 @@ export default function DepartmentDashboardPage() {
         />
       </div>
 
-      {/* ── Dashboard Columns (Left 60% / Right 40%) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-        
-        {/* Left Column: Heavy Analytics & Activity */}
-        <div className="lg:col-span-3 flex flex-col gap-3">
-          <TrendCharts 
-            period={`${activeQuarter} ${activeYear}`}
-            departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
-            refreshKey={refreshKey}
-          />
-          <RecentActivity 
-            departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
-            refreshKey={refreshKey}
-          />
-        </div>
-        
-        {/* Right Column: High-Risk Items & Action Required */}
-        <div className="lg:col-span-2 flex flex-col gap-3">
-          <RiskMatrix 
-            period={`${activeQuarter} ${activeYear}`}
-            departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
-            refreshKey={refreshKey}
-          />
-          <PendingActions 
-            employeeId={employee?.id}
-            refreshKey={refreshKey}
-          />
-        </div>
+      {/* ── Symmetrical Charts Row (3 proportional charts) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <ObjectiveChart 
+          period={`${activeQuarter} ${activeYear}`}
+          departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
+          refreshKey={refreshKey}
+        />
+        <KpiChart 
+          period={`${activeQuarter} ${activeYear}`}
+          departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
+          refreshKey={refreshKey}
+        />
+        <RiskMatrix 
+          period={`${activeQuarter} ${activeYear}`}
+          departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
+          refreshKey={refreshKey}
+        />
+      </div>
+
+      {/* ── Activity & Actions Row ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <RecentActivity 
+          departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
+          refreshKey={refreshKey}
+        />
+        <PendingActions 
+          employeeId={employee?.id}
+          refreshKey={refreshKey}
+        />
       </div>
     </div>
   )
