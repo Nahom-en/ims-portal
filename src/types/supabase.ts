@@ -613,6 +613,7 @@ export type Database = {
           department_id: string | null
           id: string
           steps: Json
+          approver_id: string | null
           updated_at: string | null
         }
         Insert: {
