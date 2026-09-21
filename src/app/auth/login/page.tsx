@@ -123,7 +123,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full h-full ml-3 border-none outline-none bg-transparent text-[15px] placeholder:text-gray-400"
+                  className="w-full h-full ml-3 border-none outline-none focus-visible:outline-none bg-transparent text-[15px] placeholder:text-gray-400"
                   style={{ color: "var(--ink)" }}
                 />
               </div>
@@ -152,7 +152,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full h-full ml-3 border-none outline-none bg-transparent text-[15px] placeholder:text-gray-400 pr-10"
+                  className="w-full h-full ml-3 border-none outline-none focus-visible:outline-none bg-transparent text-[15px] placeholder:text-gray-400 pr-10"
                   style={{ color: "var(--ink)" }}
                 />
                 <button
