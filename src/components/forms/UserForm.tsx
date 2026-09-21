@@ -18,14 +18,14 @@ export type UserStatus = "Active" | "Suspended"
 
 export interface UserFormData {
   id?: string
-  fullName: string
+  firstName: string
+  lastName: string
   email: string
   jobTitle: string
   departmentId: string
   systemRole: SystemRole
   status: UserStatus
-  companyRoleTitle: string
-  visibilityScope?: string
+  companyRoleId: string
 }
 
 export interface AvailableDepartment {
@@ -82,14 +82,14 @@ export default function UserForm({
   const [formData, setFormData] = useState<UserFormData>(() => {
     if (initialData) return initialData
     return {
-      fullName: "",
+      firstName: "",
+      lastName: "",
       email: "",
       jobTitle: "",
       departmentId: "",
       systemRole: "VIEWER",
       status: "Active",
-      companyRoleTitle: "",
-      visibilityScope: "OWN",
+      companyRoleId: "",
     }
   })
 
@@ -107,16 +107,29 @@ export default function UserForm({
   return (
     <div className="space-y-6">
 
-      <div className="space-y-2">
-        <Label htmlFor="user-name">
-          Full Name <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="user-name"
-          placeholder="e.g., Nahom Tesfaye"
-          value={formData.fullName}
-          onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="user-first-name">
+            First Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="user-first-name"
+            placeholder="e.g., Nahom"
+            value={formData.firstName}
+            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="user-last-name">
+            Last Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="user-last-name"
+            placeholder="e.g., Tesfaye"
+            value={formData.lastName}
+            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -135,26 +148,28 @@ export default function UserForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Company Role (Job Title) <span className="text-destructive">*</span></Label>
-          <Input
-            list="company-roles-list"
-            placeholder="Type or select a role..."
-            value={formData.companyRoleTitle}
-            onChange={(e) => setFormData({ ...formData, companyRoleTitle: e.target.value })}
+          <SearchableDropdown
+            value={formData.companyRoleId || null}
+            onChange={(val) => setFormData({ ...formData, companyRoleId: val })}
+            options={companyRoles.map(r => ({ id: r.id, label: r.title }))}
+            placeholder="Select a role..."
+            searchPlaceholder="Search roles..."
+            emptyMessage="No role found"
           />
-          <datalist id="company-roles-list">
-            {companyRoles.map((role) => (
-              <option key={role.id} value={role.title} />
-            ))}
-          </datalist>
         </div>
         <div className="space-y-2">
           <Label>Department <span className="text-destructive">*</span></Label>
           <Select
+            key={departments.length > 0 ? "loaded" : "loading"}
             value={formData.departmentId}
             onValueChange={(val) => setFormData({ ...formData, departmentId: val || "" })}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select department" />
+              <SelectValue placeholder="Select department">
+                {formData.departmentId 
+                  ? departments.find(d => d.id === formData.departmentId)?.name || formData.departmentId
+                  : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {departments.map((dept) => (
@@ -165,14 +180,7 @@ export default function UserForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Visibility Scope</Label>
-        <Input
-          placeholder="OWN, ALL, or comma-separated dept IDs"
-          value={formData.visibilityScope || ''}
-          onChange={(e) => setFormData({ ...formData, visibilityScope: e.target.value })}
-        />
-      </div>
+      
 
       <div className="space-y-3">
         <Label>System Role <span className="text-destructive">*</span></Label>

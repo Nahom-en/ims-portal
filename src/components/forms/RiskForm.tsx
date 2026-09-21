@@ -164,7 +164,7 @@ export default function RiskForm({
                 <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
                   <div className="flex items-center gap-2">
                     <Stack className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Select a process" />
+                    <SelectValue placeholder="Select a process">{formData.processId ? processes.find(p => p.id === formData.processId)?.name || formData.processId : undefined}</SelectValue>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
@@ -274,11 +274,12 @@ export default function RiskForm({
               <p className="text-sm text-muted-foreground">{formData.linkedObjective || "—"}</p>
             ) : (
               <Select
+                key={objectives.length > 0 ? "loaded" : "loading"}
                 value={formData.linkedObjective}
                 onValueChange={(val) => setFormData({ ...formData, linkedObjective: val === "none" ? "" : (val || "") })}
               >
                 <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-                  <SelectValue placeholder="Select the threatened objective" />
+                  <SelectValue placeholder="Select the threatened objective">{formData.linkedObjective ? objectives.find(o => o.id === formData.linkedObjective)?.title || formData.linkedObjective : undefined}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" className="text-muted-foreground italic">None</SelectItem>

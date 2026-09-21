@@ -13,12 +13,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus, Trash, GitMerge, ArrowUp, ArrowDown } from "@phosphor-icons/react"
+import { SearchableDropdown } from "./SearchableDropdown"
+import { toast } from "sonner"
 
 export type DepartmentStatus = "Active" | "Inactive"
 
 export interface WorkflowStepData {
   id?: string
-  roleId: string
+  roleId?: string
+  approverId?: string
   label: string
 }
 
@@ -79,6 +82,12 @@ export default function DepartmentForm({
     setFormData({ ...formData, workflowSteps: steps })
   }
 
+  const updateWorkflowStepApprover = (index: number, approverId: string) => {
+    const steps = [...formData.workflowSteps]
+    steps[index].approverId = approverId
+    setFormData({ ...formData, workflowSteps: steps })
+  }
+
   const updateWorkflowStepRole = (index: number, roleId: string) => {
     const steps = [...formData.workflowSteps]
     steps[index].roleId = roleId
@@ -101,6 +110,34 @@ export default function DepartmentForm({
     steps[index + 1] = steps[index]
     steps[index] = temp
     setFormData({ ...formData, workflowSteps: steps })
+  }
+
+  
+  const validateWorkflow = () => {
+    if (formData.workflowSteps.length === 0) {
+      toast.error("Workflow must have at least one step.")
+      return false
+    }
+
+    for (let i = 0; i < formData.workflowSteps.length; i++) {
+      const step = formData.workflowSteps[i]
+      if (!step.approverId) {
+        toast.error(`Step ${i + 1} is missing an assigned approver.`)
+        return false
+      }
+      
+      if (i > 0 && formData.workflowSteps[i-1].approverId === step.approverId) {
+        toast.error(`Step ${i} and Step ${i + 1} cannot have the same approver consecutively.`)
+        return false
+      }
+    }
+    
+    return true
+  }
+
+  const handleSubmit = (data: DepartmentFormData) => {
+    if (!validateWorkflow()) return
+    onSubmit(data)
   }
 
   return (
@@ -148,20 +185,17 @@ export default function DepartmentForm({
       {/* Head of Department */}
       <div className="space-y-2">
         <Label>Head of Department</Label>
-        <Select
-          value={formData.headOfDepartment}
-          onValueChange={(val) => setFormData({ ...formData, headOfDepartment: val === "unassigned" ? "" : (val || "") })}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Assign a department head" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unassigned" className="text-muted-foreground italic">Unassigned</SelectItem>
-            {availableUsers.map((user) => (
-              <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableDropdown
+          value={formData.headOfDepartment || null}
+          onChange={(val) => setFormData({ ...formData, headOfDepartment: val === "unassigned" ? "" : val })}
+          options={[
+            { id: "unassigned", label: "Unassigned" },
+            ...availableUsers.map(u => ({ id: u.id, label: u.name }))
+          ]}
+          placeholder="Assign a department head"
+          searchPlaceholder="Search users..."
+          emptyMessage="No user found"
+        />
       </div>
 
       {/* ── Workflow JSON Array Builder ── */}
@@ -200,24 +234,16 @@ export default function DepartmentForm({
                 onChange={(e) => updateWorkflowStepLabel(index, e.target.value)}
               />
 
-              <Select
-                value={step.roleId}
-                onValueChange={(val) => updateWorkflowStepRole(index, val)}
-              >
-                <SelectTrigger className="w-[200px] h-8 text-sm">
-                  <SelectValue placeholder="Select Approver Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companyRoles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>{role.title}</SelectItem>
-                  ))}
-                  {step.roleId && !companyRoles.find(r => r.id === step.roleId) && (
-                    <SelectItem key={step.roleId} value={step.roleId} className="text-destructive">
-                      Unknown Role
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="w-[300px]">
+                <SearchableDropdown
+                  value={step.approverId || null}
+                  onChange={(val) => updateWorkflowStepApprover(index, val)}
+                  options={availableUsers.map(u => ({ id: u.id, label: u.name }))}
+                  placeholder="Search Approver..."
+                  searchPlaceholder="Search users..."
+                  emptyMessage="No user found"
+                />
+              </div>
 
               <div className="flex items-center">
                 <Button
@@ -266,8 +292,8 @@ export default function DepartmentForm({
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={() => onSubmit(formData)} className="bg-primary hover:bg-primary/90 text-white">
-          {isEditMode ? "Save Changes" : "Create Department"}
+        <Button onClick={() => handleSubmit(formData)} className="bg-primary hover:bg-primary/90 text-white">
+          "Finished"
         </Button>
       </div>
     </div>

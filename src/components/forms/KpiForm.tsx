@@ -135,12 +135,17 @@ export default function KpiForm({
                 </div>
               ) : (
                 <Select
+                  key={departments.length > 0 ? "loaded" : "loading"}
                   value={formData.departmentId}
                   onValueChange={(val) => setFormData({ ...formData, departmentId: val, processName: "" })}
                   disabled={readOnly || !canOverrideDepartment}
                 >
                   <SelectTrigger className="bg-white dark:bg-zinc-950 w-full">
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Select department">
+                      {formData.departmentId
+                        ? departments.find(d => d.id === formData.departmentId)?.name || formData.departmentId
+                        : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map((dept) => (
