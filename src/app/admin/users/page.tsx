@@ -95,23 +95,16 @@ export default function UsersPage() {
           const companyRoleData = Array.isArray(e.company_roles) ? e.company_roles[0] : e.company_roles
           const jobTitle = companyRoleData?.title || "Staff"
           
-          let scope = 'OWN'
-          if (e.custom_metadata && typeof e.custom_metadata === 'object' && 'visibility_scope' in e.custom_metadata) {
-            const val = (e.custom_metadata as any).visibility_scope;
-            if (val) scope = Array.isArray(val) ? val.join(", ") : val;
-          }
-
           return {
             id: e.id,
-            fullName: `${e.firstname} ${e.lastname}`,
+            firstName: e.firstname || "",
+            lastName: e.lastname || "",
             email: e.email,
             jobTitle: jobTitle,
             departmentId: e.department_id || "",
             companyRoleId: e.company_role_id || "",
-            companyRoleTitle: jobTitle,
             systemRole: uiRole,
             status: e.is_active ? "Active" : "Suspended",
-            visibilityScope: scope
           }
         })
         setData(mapped as UserFormData[])
@@ -132,7 +125,7 @@ export default function UsersPage() {
 
   // Filter & Sort
   const filteredData = data.filter(u =>
-    `${u.fullName} ${u.email}`.toLowerCase().includes(search.toLowerCase())
+    `${`${u.firstName} ${u.lastName}`} ${u.email}`.toLowerCase().includes(search.toLowerCase())
   )
 
   const sortedData = [...filteredData].sort((a, b) => {
@@ -161,8 +154,8 @@ export default function UsersPage() {
   // ── Handlers ──
 
   const handleCreate = async (formData: UserFormData) => {
-    if (!formData.fullName.trim() || !formData.email.trim()) {
-      toast.error("Full Name and Email are required.")
+    if (!formData.firstName?.trim() || !formData.email.trim()) {
+      toast.error("First Name and Email are required.")
       return
     }
     if (!formData.departmentId) {
@@ -170,55 +163,28 @@ export default function UsersPage() {
       return
     }
 
-    let resolvedRoleId: string | null = null;
-    const title = formData.companyRoleTitle.trim();
-    
-    if (title) {
-      const existing = companyRolesList.find(r => r.title.toLowerCase() === title.toLowerCase());
-      if (existing) {
-        resolvedRoleId = existing.id;
-      } else {
-        const { data: newRole, error: roleErr } = await supabase
-          .from('company_roles')
-          .insert({ title: title, description: '' })
-          .select('id, title')
-          .single();
-          
-        if (roleErr) {
-          toast.error(`Could not create new role: ${roleErr.message}`);
-          return;
-        }
-        resolvedRoleId = newRole.id;
-        setCompanyRolesList([...companyRolesList, newRole]);
-      }
-    }
+    const resolvedRoleId = formData.companyRoleId || null;
 
     let dbRole = "VIEWER"
     if (formData.systemRole === "SUPER_ADMIN" || formData.systemRole === "SYSTEM_ADMIN") dbRole = "SYSTEM_ADMIN"
     else if (formData.systemRole === "DEPT_HEAD") dbRole = "WRITER"
     else if (formData.systemRole === "CONTRIBUTOR") dbRole = "WRITER"
 
-    const parts = formData.fullName.split(" ")
-    const firstname = parts[0] || ""
-    const lastname = parts.slice(1).join(" ") || ""
 
-    const vScope = formData.visibilityScope || 'OWN';
-    let parsedScope: any = vScope;
-    if (vScope !== 'ALL' && vScope !== 'OWN') {
-      parsedScope = vScope.split(',').map(s => s.trim());
-    }
+
+
 
     const { data: inserted, error } = await supabase
       .from('employees')
       .insert({
-        firstname,
-        lastname,
+        firstname: formData.firstName,
+        lastname: formData.lastName,
         email: formData.email,
         department_id: formData.departmentId,
         company_role_id: resolvedRoleId,
         role: dbRole as any,
         is_active: formData.status === "Active",
-        custom_metadata: { visibility_scope: parsedScope }
+        custom_metadata: {}
       })
       .select('id')
       .single()
@@ -235,32 +201,11 @@ export default function UsersPage() {
     }
     setData([created, ...data])
     setIsCreateSheetOpen(false)
-    toast.success(`User "${created.fullName}" has been created.`)
+    toast.success(`User "${`${created.firstName} ${created.lastName}`}" has been created.`)
   }
 
   const handleUpdate = async (formData: UserFormData) => {
-    let resolvedRoleId: string | null = null;
-    const title = formData.companyRoleTitle.trim();
-    
-    if (title) {
-      const existing = companyRolesList.find(r => r.title.toLowerCase() === title.toLowerCase());
-      if (existing) {
-        resolvedRoleId = existing.id;
-      } else {
-        const { data: newRole, error: roleErr } = await supabase
-          .from('company_roles')
-          .insert({ title: title, description: '' })
-          .select('id, title')
-          .single();
-          
-        if (roleErr) {
-          toast.error(`Could not create new role: ${roleErr.message}`);
-          return;
-        }
-        resolvedRoleId = newRole.id;
-        setCompanyRolesList([...companyRolesList, newRole]);
-      }
-    }
+    const resolvedRoleId = formData.companyRoleId || null;
 
     if (!formData.id?.startsWith("usr-")) {
       let dbRole = "VIEWER"
@@ -268,20 +213,18 @@ export default function UsersPage() {
       else if (formData.systemRole === "DEPT_HEAD") dbRole = "WRITER"
       else if (formData.systemRole === "CONTRIBUTOR") dbRole = "WRITER"
 
-      const vScope = formData.visibilityScope || 'OWN';
-      let parsedScope: any = vScope;
-      if (vScope !== 'ALL' && vScope !== 'OWN') {
-        parsedScope = vScope.split(',').map(s => s.trim());
-      }
+
 
       const { error } = await supabase
         .from('employees')
         .update({
+          firstname: formData.firstName,
+          lastname: formData.lastName,
           department_id: formData.departmentId,
           company_role_id: resolvedRoleId,
           role: dbRole as any,
           is_active: formData.status === "Active",
-          custom_metadata: { visibility_scope: parsedScope }
+          custom_metadata: {}
         })
         .eq('id', formData.id)
 
@@ -291,9 +234,9 @@ export default function UsersPage() {
       }
     }
     
-    setData(data.map(u => u.id === formData.id ? { ...formData, visibilityScope: formData.visibilityScope } : u))
+    setData(data.map(u => u.id === formData.id ? { ...formData, id: formData.id } : u))
     setUserToEdit(null)
-    toast.success(`User "${formData.fullName}" has been updated.`)
+    toast.success(`User "${`${formData.firstName} ${formData.lastName}`}" has been updated.`)
   }
 
   const handleDelete = async () => {
@@ -306,7 +249,7 @@ export default function UsersPage() {
         }
       }
       setData(data.filter(u => u.id !== userToDelete.id))
-      toast.success(`User "${userToDelete.fullName}" has been removed.`)
+      toast.success(`User "${`${userToDelete.firstName} ${userToDelete.lastName}`}" has been removed.`)
       setUserToDelete(null)
     }
   }
@@ -376,8 +319,8 @@ export default function UsersPage() {
           <Table className="min-w-full">
             <TableHeader className="bg-muted dark:bg-zinc-900/50">
               <TableRow>
-                <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('fullName')}>
-                  <div className="flex items-center gap-1">User {sortKey === 'fullName' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
+                <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('firstName')}>
+                  <div className="flex items-center gap-1">User {sortKey === 'firstName' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
                 </TableHead>
                 <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('departmentId')}>
                   <div className="flex items-center gap-1">Department {sortKey === 'departmentId' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
@@ -385,9 +328,7 @@ export default function UsersPage() {
                 <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('systemRole')}>
                   <div className="flex items-center gap-1">System Role {sortKey === 'systemRole' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
                 </TableHead>
-                <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('visibilityScope')}>
-                  <div className="flex items-center gap-1">Visibility Scope {sortKey === 'visibilityScope' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
-                </TableHead>
+                
                 <TableHead className="h-10 w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -409,7 +350,7 @@ export default function UsersPage() {
                   >
                     <TableCell className="font-medium pl-6">
                       <div>
-                        {row.fullName}
+                        {row.firstName} {row.lastName}
                         <div className="flex items-center gap-2">
                           <p className="text-xs text-muted-foreground font-normal">{row.email}</p>
                           {row.jobTitle && (
@@ -424,9 +365,7 @@ export default function UsersPage() {
                     <TableCell>
                       <RoleBadge role={row.systemRole} />
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs font-mono">{row.visibilityScope || 'OWN'}</Badge>
-                    </TableCell>
+                    
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -483,7 +422,7 @@ export default function UsersPage() {
       <AlertDialog 
         open={!!userToDelete} 
         title="Are you sure?" 
-        description={`You are about to permanently remove ${userToDelete?.fullName} (${userToDelete?.email}). They will lose all access to the IMS portal.`}
+        description={`You are about to permanently remove ${`${userToDelete?.firstName} ${userToDelete?.lastName}`} (${userToDelete?.email}). They will lose all access to the IMS portal.`}
         onConfirm={handleDelete} 
         onCancel={() => setUserToDelete(null)} 
       />
