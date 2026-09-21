@@ -8,6 +8,7 @@ import { ArrowLeft, CircleNotch } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import ObjectiveForm, { ObjectiveFormData, AvailableKpi } from "@/components/forms/ObjectiveForm"
 import { createClient } from "@/lib/supabase/client"
+import { submitForApproval } from "@/lib/workflow"
 
 // ── Quarter string → ISO date range ─────────────────────────────────────────
 // e.g. "Q2 2026" → { start: "2026-04-01", end: "2026-06-30" }
@@ -81,12 +82,17 @@ export default function CreateObjectivePage() {
       toast.error("No department found. Please contact your system administrator.")
       return
     }
+    
+    if (!employee) {
+      toast.error("Employee context not loaded.")
+      return
+    }
 
     setSaving(true)
 
     const { start, end } = quarterToDateRange(data.targetDate ?? "Q1 2026")
-
-    const { error } = await supabase.from("objective_definitions").insert({
+    
+    const payload = {
       department_id: departmentId,
       objective_description: data.name,
       success_criteria: data.successCriteria ?? null,
@@ -97,20 +103,27 @@ export default function CreateObjectivePage() {
         description: data.description,
         linkedKpis: data.linkedKpis,
         customFields: data.customFields ?? [],
+        change_type: 'CREATE'
       },
-      is_active: true,
-    })
-
-    setSaving(false)
-
-    if (error) {
-      console.error("Supabase INSERT error:", error)
-      toast.error(`Failed to save: ${error.message}`)
-      return
+      is_active: false // Only becomes active when approved
     }
 
-    toast.success(`"${data.name}" has been created successfully.`)
-    router.push("/department/objectives")
+    try {
+      await submitForApproval(supabase, {
+        entityType: 'objective',
+        departmentId: departmentId,
+        requestedBy: employee.id,
+        payload: payload
+      })
+
+      toast.success(`Objective submitted for approval.`)
+      router.push("/department/objectives")
+    } catch (error: any) {
+      console.error("Workflow submission error:", error)
+      toast.error(`Failed to submit: ${error.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   // ── Loading state ────────────────────────────────────────────────────────────

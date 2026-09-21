@@ -38,10 +38,8 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const { data: roles } = await supabase.from('company_roles').select('id, title').order('title')
-      if (roles) {
-        setCompanyRolesList(roles.map((r: any) => ({ id: r.id, title: r.title })))
-      }
+      const roles = [{id: 'DEPARTMENT_MANAGER', title: 'Department Manager'}, {id: 'SYSTEM_ADMIN', title: 'System Admin'}];
+      setCompanyRolesList(roles);
 
       const { data: depts } = await supabase
         .from('departments')
@@ -51,7 +49,7 @@ export default function DepartmentsPage() {
           manager_id,
           workflow_templates(
             id,
-            workflow_template_steps(id, step_order, label, company_role_id)
+            steps
           )
         `)
       
@@ -66,13 +64,13 @@ export default function DepartmentsPage() {
           const templates = Array.isArray(d.workflow_templates) ? d.workflow_templates[0] : d.workflow_templates;
           
           let stepsArr: any[] = []
-          if (templates && templates.workflow_template_steps) {
-            const rawSteps = Array.isArray(templates.workflow_template_steps) ? templates.workflow_template_steps : []
-            rawSteps.sort((a, b) => a.step_order - b.step_order)
-            stepsArr = rawSteps.map(s => ({
-              id: s.id,
-              label: s.label,
-              roleId: s.company_role_id
+          if (templates && templates.steps) {
+            const rawSteps = Array.isArray(templates.steps) ? templates.steps : [];
+            stepsArr = rawSteps.map((s, i) => ({
+              id: s.id || `step-${Date.now()}-${i}`,
+              label: s.label || s,
+              roleId: s.roleId || s.role || null,
+              approverId: s.approverId || null
             }))
           }
           
@@ -151,22 +149,20 @@ export default function DepartmentsPage() {
     const { data: newTemplate, error: tplErr } = await supabase
       .from('workflow_templates')
       .insert({
-        department_id: newDept.id,
-        entity_type: 'kpi',
-        is_active: true
+        department_id: newDept.id
       })
       .select('id')
       .single()
 
     if (!tplErr && newTemplate && formData.workflowSteps.length > 0) {
-      const insertPayload = formData.workflowSteps.map((step, index) => ({
-        workflow_template_id: newTemplate.id,
-        step_order: index + 1,
+      const insertPayload = formData.workflowSteps.map((step) => ({
+        id: step.id,
         label: step.label,
-        company_role_id: step.roleId || companyRolesList[0]?.id
+        roleId: step.roleId || null,
+        approverId: step.approverId || null
       }))
 
-      await supabase.from('workflow_template_steps').insert(insertPayload)
+      await supabase.from('workflow_templates').update({ steps: insertPayload }).eq('id', newTemplate.id)
     }
 
     const created: DepartmentFormData = {
@@ -206,28 +202,31 @@ export default function DepartmentsPage() {
         .eq('department_id', deptId)
         .single()
 
+      const insertPayload = formData.workflowSteps.map((step) => ({
+        id: step.id,
+        label: step.label,
+        roleId: step.roleId || null,
+        approverId: step.approverId || null
+      }))
+
       if (template) {
-        await supabase
-          .from('workflow_template_steps')
-          .delete()
-          .eq('workflow_template_id', template.id)
+        const { error: stepsError } = await supabase
+          .from('workflow_templates')
+          .update({ steps: insertPayload })
+          .eq('id', template.id)
 
-        if (formData.workflowSteps.length > 0) {
-          const insertPayload = formData.workflowSteps.map((step, index) => ({
-            workflow_template_id: template.id,
-            step_order: index + 1,
-            label: step.label,
-            company_role_id: step.roleId || companyRolesList[0]?.id
-          }))
-
-          const { error: stepsError } = await supabase
-            .from('workflow_template_steps')
-            .insert(insertPayload)
-
-          if (stepsError) {
-            toast.error(`Error saving workflow steps: ${stepsError.message}`)
-            return
-          }
+        if (stepsError) {
+          toast.error(`Error saving workflow steps: ${stepsError.message}`)
+          return
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('workflow_templates')
+          .insert({ department_id: deptId, steps: insertPayload })
+          
+        if (insertError) {
+          toast.error(`Error creating workflow steps: ${insertError.message}`)
+          return
         }
       }
     }
