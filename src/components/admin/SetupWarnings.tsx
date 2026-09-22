@@ -34,8 +34,7 @@ export function SetupWarnings({ warnings }: { warnings: WarningItem[] }) {
               <CardTitle className="text-lg">Setup Warnings</CardTitle>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground" /></span>}>
                   </TooltipTrigger>
                   <TooltipContent>
                     Configuration issues detected from live data. Warnings auto-resolve when the underlying issue is fixed.

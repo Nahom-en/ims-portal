@@ -60,6 +60,16 @@ export default function DepartmentDashboardPage() {
       )
       .on(
         'postgres_changes',
+        { event: '*', schema: 'public', table: 'objective_tracking' },
+        () => setRefreshKey(prev => prev + 1)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'risk_assessments' },
+        () => setRefreshKey(prev => prev + 1)
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'approval_requests' },
         () => setRefreshKey(prev => prev + 1)
       )

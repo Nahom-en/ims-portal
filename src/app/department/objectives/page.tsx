@@ -77,6 +77,7 @@ export default function ObjectivesPage() {
         setData(objs.map(o => ({
           id: o.id,
           name: o.objective_description,
+          department_id: o.department_id,
           process: (o.custom_metadata as any)?.processName || 'N/A',
           status: 'On Track', // Mock
           targetDate: o.end_date || 'N/A',
@@ -118,7 +119,7 @@ export default function ObjectivesPage() {
     const { error } = await supabase
       .from("approval_requests")
       .insert({
-        department_id: departmentId,
+        department_id: objToDelete.department_id || departmentId,
         entity_type: "objective",
         entity_id: objToDelete.id,
         requested_by: employee?.id || null,

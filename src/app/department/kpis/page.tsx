@@ -52,7 +52,7 @@ export default function KPITrackingPage() {
           id,
           kpi_name,
           target_value,
-          unit,
+          
           processes!inner (
             process_name,
             department_id
@@ -72,7 +72,7 @@ export default function KPITrackingPage() {
             name: k.kpi_name,
             processName: k.processes?.process_name || "Department Metrics",
             responsibility: "Dept Head",
-            target: `${k.target_value} ${k.unit}`,
+            target: `${k.target_value} `,
             actual: "",
             achievementPercentage: "",
             status: "Pending",

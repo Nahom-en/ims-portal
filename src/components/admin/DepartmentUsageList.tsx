@@ -50,8 +50,7 @@ export function DepartmentUsageList({ data }: { data: DeptData[] }) {
               <CardTitle className="text-lg">Department Usage</CardTitle>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground" /></span>}>
                   </TooltipTrigger>
                   <TooltipContent>
                     Shows how many Objectives, KPIs, and Risks each department has registered. Empty departments may need onboarding support.

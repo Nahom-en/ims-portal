@@ -79,6 +79,9 @@ export default function RiskRegisterPage() {
   const [activeYear, setActiveYear] = useState(actualYear)
 
   useEffect(() => {
+    if (employee && departmentFilter === null) {
+      setDepartmentFilter(employee.department_id || 'ALL')
+    }
   }, [employee, departmentFilter])
 
   useEffect(() => {
