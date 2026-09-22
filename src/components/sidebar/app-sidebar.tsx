@@ -31,8 +31,8 @@ const primaryNav = [
   { title: "Dashboard",     url: "/department", icon: SquaresFourIcon },
   { title: "Approvals",     url: "/department/approvals", icon: CheckCircleIcon, hideFrom: ["VIEWER"] },
   { title: "Objectives",    url: "/department/objectives", icon: TargetIcon },
-  { title: "KPI Tracking",  url: "/department/kpis", icon: ChartBarIcon },
-  { title: "Risk Register", url: "/department/risks", icon: ShieldWarningIcon },
+  { title: "KPIs",  url: "/department/kpis", icon: ChartBarIcon },
+  { title: "Risks", url: "/department/risks", icon: ShieldWarningIcon },
   { title: "Progress",      url: "/department/progress", icon: ActivityIcon },
 ]
 

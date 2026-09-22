@@ -108,8 +108,8 @@ export function TopHeader() {
 
             // Format the label nicely
       let label = segment.charAt(0).toUpperCase() + segment.slice(1)
-      if (segment.toLowerCase() === 'kpis') label = 'KPI Tracking'
-      if (segment.toLowerCase() === 'risks') label = 'Risk Register'
+      if (segment.toLowerCase() === 'kpis') label = 'KPIs'
+      if (segment.toLowerCase() === 'risks') label = 'Risks'
 
       if (uuidNames[segment]) {
         label = uuidNames[segment]

@@ -171,7 +171,7 @@ export default function RiskRegisterPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Warning className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Risk Register</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Risks</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {departmentFilter !== null && (

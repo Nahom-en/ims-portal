@@ -66,7 +66,7 @@ export default function ReportForm({
                 <ShieldWarning className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-sm font-semibold">Risk Register</p>
+                <p className="text-sm font-semibold">Risks</p>
                 <p className="text-xs text-muted-foreground">1 Critical, 2 Medium, 2 Low</p>
               </div>
             </div>

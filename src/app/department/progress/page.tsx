@@ -13,11 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Check, ArrowRight, CircleDashed, CaretUp, CaretDown } from "@phosphor-icons/react"
+import { MagnifyingGlass, Check, ArrowRight, CircleDashed, CaretUp, CaretDown } from "@phosphor-icons/react"
 
 export default function ProgressPage() {
   const employee = useEmployee()
   const [data, setData] = useState<any[]>([])
+  const defaultStages = [
+    { label: "Submitted", index: 0 },
+    { label: "Under Review", index: 1 },
+    { label: "Approved", index: 2 }
+  ]
+  const [dynamicStages, setDynamicStages] = useState(defaultStages)
 
   const currentDate = new Date()
   const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
@@ -37,6 +43,7 @@ export default function ProgressPage() {
     }
   }
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(null)
   
   // Set default once employee is loaded
@@ -60,19 +67,35 @@ export default function ProgressPage() {
           status,
           current_step_index,
           created_at,
-          department_id,
-          workflow_templates (
-             workflow_template_steps ( step_order, label, company_role_id )
-          )
+          department_id
         `)
         .order('created_at', { ascending: false })
 
-      if (employee.role !== 'SYSTEM_ADMIN') {
-        query = query
+      if (employee.role !== 'SYSTEM_ADMIN' && departmentFilter && departmentFilter !== 'ALL') {
+        query = query.eq('department_id', departmentFilter)
       }
       
       const { data: requests } = await query
       if (requests) setData(requests)
+      
+      // Fetch department's workflow template to build the pipeline
+      if (departmentFilter && departmentFilter !== 'ALL') {
+        const { data: tmpl } = await supabase.from('workflow_templates').select('steps').eq('department_id', departmentFilter).single()
+        if (tmpl && tmpl.steps) {
+          const rawSteps = Array.isArray(tmpl.steps) ? tmpl.steps : []
+          const mapped = rawSteps.map((s, i) => ({ label: s.label || `Step ${i+1}`, index: i + 1 }))
+          setDynamicStages([
+            { label: "Submitted", index: 0 },
+            ...mapped,
+            { label: "Approved", index: mapped.length + 1 }
+          ])
+        } else {
+          setDynamicStages(defaultStages)
+        }
+      } else {
+        setDynamicStages(defaultStages)
+      }
+      
       setLoading(false)
     }
     fetchData()
@@ -81,22 +104,21 @@ export default function ProgressPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Loading progress...</div>
 
   
-  // Standardized workflow stages
-  const stages = [
-    { label: "Submitted", index: 0 },
-    { label: "Under Review", index: 1 },
-    { label: "Approved", index: 2 },
-    { label: "Completed", index: 3 }
-  ];
+  const stages = dynamicStages;
 
   const countsByStage = stages.map(st => {
     return data.filter(d => {
       const status = d.status?.toUpperCase() || '';
-      if (st.index === 0) return status === 'PENDING_APPROVAL' && (d.current_step_index === 0 || d.current_step_index === 1);
-      if (st.index === 1) return status === 'PENDING_APPROVAL' && d.current_step_index > 1;
-      if (st.index === 2) return status === 'APPROVED';
-      if (st.index === 3) return status === 'COMPLETED';
-      return false;
+      const isApproved = status === 'APPROVED' || status === 'COMPLETED';
+      
+      // First stage: Submitted but not yet at step 1
+      if (st.index === 0) return !isApproved && d.current_step_index <= 1;
+      
+      // Last stage: Approved/Completed
+      if (st.index === stages.length - 1) return isApproved;
+      
+      // Intermediate stages
+      return !isApproved && d.current_step_index === (st.index + 1);
     }).length;
   });
 
@@ -134,6 +156,48 @@ export default function ProgressPage() {
         </div>
       )}
 
+      
+      {/* ── Filters ── */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="relative w-full max-w-sm">
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input 
+            type="text" 
+            placeholder="Search requests..." 
+            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-transparent text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {departmentFilter !== null && (
+            <DepartmentFilter value={departmentFilter} onChange={setDepartmentFilter} />
+          )}
+          <div className="flex items-center gap-2">
+            <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+              <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Q1","Q2","Q3","Q4"].map((q) => (
+                  <SelectItem key={q} value={q}>{q}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+              <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       {/* ── Detail Table ── */}
       <div className="bg-white dark:bg-zinc-950 border dark:border-zinc-800 rounded-lg overflow-hidden">
         <Table>
@@ -151,7 +215,12 @@ export default function ProgressPage() {
             ) : data.length === 0 ? (
               <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No approval requests found.</TableCell></TableRow>
             ) : (
-              data.map((row) => {
+              data.filter(row => {
+              if (!search) return true
+              const term = search.toLowerCase()
+              const entityName = row.entity_type === 'objective' ? 'Objective' : row.entity_type === 'kpi' ? 'KPI' : 'Risk'
+              return entityName.toLowerCase().includes(term) || (row.status || '').toLowerCase().includes(term)
+            }).map((row) => {
                 const entityName = row.entity_type === 'objective' ? 'Objective' : row.entity_type === 'kpi' ? 'KPI' : 'Risk'
                 return (
                   <TableRow key={row.id}>
