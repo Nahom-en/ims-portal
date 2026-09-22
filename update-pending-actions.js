@@ -1,24 +1,12 @@
-"use client"
+const fs = require('fs');
+let code = fs.readFileSync('src/components/dashboard/PendingActions.tsx', 'utf8');
+
+const newContent = `"use client"
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock } from "@phosphor-icons/react"
 import { createClient } from "@/lib/supabase/client"
-function formatDistanceToNow(date: Date, options?: { addSuffix?: boolean }) {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  const suffix = options?.addSuffix ? ' ago' : '';
-  if (diffInSeconds < 60) return 'just now';
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return diffInMinutes + ' minute' + (diffInMinutes !== 1 ? 's' : '') + suffix;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return diffInHours + ' hour' + (diffInHours !== 1 ? 's' : '') + suffix;
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 30) return diffInDays + ' day' + (diffInDays !== 1 ? 's' : '') + suffix;
-  const diffInMonths = Math.floor(diffInDays / 30);
-  if (diffInMonths < 12) return diffInMonths + ' month' + (diffInMonths !== 1 ? 's' : '') + suffix;
-  const diffInYears = Math.floor(diffInDays / 365);
-  return diffInYears + ' year' + (diffInYears !== 1 ? 's' : '') + suffix;
-}
+import { formatDistanceToNow } from "date-fns"
 
 interface Props {
   employeeId?: string
@@ -66,7 +54,7 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
           const typeName = r.entity_type.charAt(0).toUpperCase() + r.entity_type.slice(1)
           return {
             id: r.id,
-            title: `Review ${typeName} Submission from ${r.employees?.first_name || 'User'}`,
+            title: \`Review \${typeName} Submission from \${r.employees?.first_name || 'User'}\`,
             due: formatDistanceToNow(new Date(r.created_at), { addSuffix: true }),
             priority: isOld ? 'high' : 'medium',
             icon: Clock
@@ -100,7 +88,7 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
           <div className="space-y-5">
             {actions.map((action) => (
               <div key={action.id} className="flex items-start gap-4 border-b border-border/50 pb-4 last:border-0 last:pb-0">
-                <div className={`mt-0.5 rounded-full p-2 ${action.priority === 'high' ? 'bg-destructive/20 text-destructive dark:bg-rose-950/50' : action.priority === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/50' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50'}`}>
+                <div className={\`mt-0.5 rounded-full p-2 \${action.priority === 'high' ? 'bg-destructive/20 text-destructive dark:bg-rose-950/50' : action.priority === 'medium' ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/50' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50'}\`}>
                   <action.icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 space-y-1">
@@ -115,3 +103,6 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
     </Card>
   )
 }
+`
+
+fs.writeFileSync('src/components/dashboard/PendingActions.tsx', newContent);

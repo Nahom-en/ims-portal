@@ -1,25 +1,13 @@
-"use client"
+const fs = require('fs');
+let code = fs.readFileSync('src/components/dashboard/RecentActivity.tsx', 'utf8');
+
+const newContent = `"use client"
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Target, ShieldWarning, ChartBar, ArrowRight } from "@phosphor-icons/react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-function formatDistanceToNow(date: Date, options?: { addSuffix?: boolean }) {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  const suffix = options?.addSuffix ? ' ago' : '';
-  if (diffInSeconds < 60) return 'just now';
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return diffInMinutes + ' minute' + (diffInMinutes !== 1 ? 's' : '') + suffix;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return diffInHours + ' hour' + (diffInHours !== 1 ? 's' : '') + suffix;
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 30) return diffInDays + ' day' + (diffInDays !== 1 ? 's' : '') + suffix;
-  const diffInMonths = Math.floor(diffInDays / 30);
-  if (diffInMonths < 12) return diffInMonths + ' month' + (diffInMonths !== 1 ? 's' : '') + suffix;
-  const diffInYears = Math.floor(diffInDays / 365);
-  return diffInYears + ' year' + (diffInYears !== 1 ? 's' : '') + suffix;
-}
+import { formatDistanceToNow } from "date-fns"
 
 interface Props {
   departmentId?: string
@@ -67,9 +55,9 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
       if (objs.data) {
         objs.data.forEach((item: any) => {
           all.push({
-            id: `obj-${item.id}`,
+            id: \`obj-\${item.id}\`,
             type: "objective",
-            action: `Updated progress on '${item.objective_definitions?.objective_description || 'Objective'}'`,
+            action: \`Updated progress on '\${item.objective_definitions?.objective_description || 'Objective'}'\`,
             actor: item.employees?.first_name || "User",
             date: new Date(item.created_at),
             time: formatDistanceToNow(new Date(item.created_at), { addSuffix: true }),
@@ -81,9 +69,9 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
       if (kpis.data) {
         kpis.data.forEach((item: any) => {
           all.push({
-            id: `kpi-${item.id}`,
+            id: \`kpi-\${item.id}\`,
             type: "kpi",
-            action: `Recorded measurement for '${item.kpi_definitions?.name || 'KPI'}'`,
+            action: \`Recorded measurement for '\${item.kpi_definitions?.name || 'KPI'}'\`,
             actor: item.employees?.first_name || "User",
             date: new Date(item.created_at),
             time: formatDistanceToNow(new Date(item.created_at), { addSuffix: true }),
@@ -95,9 +83,9 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
       if (risks.data) {
         risks.data.forEach((item: any) => {
           all.push({
-            id: `risk-${item.id}`,
+            id: \`risk-\${item.id}\`,
             type: "risk",
-            action: `Assessed risk '${item.risk_definitions?.name || 'Risk'}'`,
+            action: \`Assessed risk '\${item.risk_definitions?.name || 'Risk'}'\`,
             actor: item.employees?.first_name || "User",
             date: new Date(item.created_at),
             time: formatDistanceToNow(new Date(item.created_at), { addSuffix: true }),
@@ -156,3 +144,6 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
     </Card>
   )
 }
+`
+
+fs.writeFileSync('src/components/dashboard/RecentActivity.tsx', newContent);
