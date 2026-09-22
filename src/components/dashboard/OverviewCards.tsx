@@ -151,15 +151,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
             </span>
           </div>
         </CardContent>
-        <CardFooter className="pt-2 border-t flex justify-end">
-          <Link
-            href="/department/objectives"
-            className="flex items-center font-medium text-primary hover:text-primary/80 transition-colors"
-            title="View all objectives"
-          >
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </CardFooter>
+        
       </Card>
 
       {/* ── 2. KPI Card ── */}
@@ -186,15 +178,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
             </span>
           </div>
         </CardContent>
-        <CardFooter className="pt-2 border-t flex justify-end">
-          <Link
-            href="/department/kpis"
-            className="flex items-center font-medium text-primary hover:text-primary/80 transition-colors"
-            title="Update actuals"
-          >
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </CardFooter>
+        
       </Card>
 
       {/* ── 3. Risk Card ── */}
@@ -221,15 +205,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
             </span>
           </div>
         </CardContent>
-        <CardFooter className="pt-2 border-t flex justify-end">
-          <Link
-            href="/department/risks"
-            className="flex items-center font-medium text-primary hover:text-primary/80 transition-colors"
-            title="View register"
-          >
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </CardFooter>
+        
       </Card>
     </div>
   )

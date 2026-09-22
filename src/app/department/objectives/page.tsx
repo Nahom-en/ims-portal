@@ -163,30 +163,32 @@ export default function ObjectivesPage() {
           <Target className="h-6 w-6 text-primary dark:text-blue-500" />
           <h1 className="text-2xl font-bold tracking-tight">Objectives</h1>
         </div>
-        <div className="flex items-center gap-2">
-                    {departmentFilter !== null && (
+                <div className="flex flex-wrap items-center gap-3">
+          {departmentFilter !== null && (
             <DepartmentFilter value={departmentFilter} onChange={setDepartmentFilter} />
           )}
-          <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
-            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["Q1","Q2","Q3","Q4"].map((q) => (
-                <SelectItem key={q} value={q}>{q}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
-            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
-                <SelectItem key={y} value={y}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+              <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["Q1","Q2","Q3","Q4"].map((q) => (
+                  <SelectItem key={q} value={q}>{q}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+              <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={() => router.push("/department/objectives/new")} className="gap-2 h-9">
             <Plus className="h-4 w-4" />
             New Objective
