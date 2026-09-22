@@ -19,6 +19,8 @@ type DeptOption = { id: string; name: string }
 
 export function SystemActivityChart({ departments }: { departments: DeptOption[] }) {
   const [selectedDept, setSelectedDept] = useState("ALL")
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
+  const [selectedQuarter, setSelectedQuarter] = useState("ALL")
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
@@ -31,6 +33,12 @@ export function SystemActivityChart({ departments }: { departments: DeptOption[]
       let cycleQ = supabase.from("report_cycles").select("id, reporting_period, department_id").order("reporting_period")
       if (selectedDept !== "ALL") {
         cycleQ = cycleQ.eq("department_id", selectedDept)
+      }
+      if (selectedYear !== "ALL") {
+        cycleQ = cycleQ.like("reporting_period", `%${selectedYear}%`)
+      }
+      if (selectedQuarter !== "ALL") {
+        cycleQ = cycleQ.like("reporting_period", `%${selectedQuarter}%`)
       }
       const { data: cycles } = await cycleQ
 
@@ -78,7 +86,7 @@ export function SystemActivityChart({ departments }: { departments: DeptOption[]
     }
 
     fetchData()
-  }, [selectedDept, supabase])
+  }, [selectedDept, selectedYear, selectedQuarter, supabase])
 
   return (
     <Card>
@@ -98,17 +106,42 @@ export function SystemActivityChart({ departments }: { departments: DeptOption[]
           </div>
           <CardDescription>Objectives, KPIs & Risks tracked per period</CardDescription>
         </div>
-        <Select value={selectedDept} onValueChange={setSelectedDept}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Departments" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Departments</SelectItem>
-            {departments.map((d) => (
-              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+            <SelectTrigger className="w-[100px] h-8 text-xs">
+              <SelectValue placeholder="Quarter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Qs</SelectItem>
+              <SelectItem value="Q1">Q1</SelectItem>
+              <SelectItem value="Q2">Q2</SelectItem>
+              <SelectItem value="Q3">Q3</SelectItem>
+              <SelectItem value="Q4">Q4</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[90px] h-8 text-xs">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Yrs</SelectItem>
+              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedDept} onValueChange={setSelectedDept}>
+            <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (

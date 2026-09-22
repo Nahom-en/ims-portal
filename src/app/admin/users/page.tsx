@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Users, Trash, Shield, CaretLeft, CaretRight, MagnifyingGlass, CaretUp, CaretDown } from "@phosphor-icons/react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Plus, Users, Trash, Shield, CaretLeft, CaretRight, MagnifyingGlass,
+  Info, CaretUp, CaretDown } from "@phosphor-icons/react"
 import { Input } from "@/components/ui/input"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 
@@ -279,27 +281,60 @@ export default function UsersPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Total number of registered user accounts in the system.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{data.length}</div>
+              <div className="text-2xl font-bold tracking-tight">{data.length}</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Unassigned Departments</CardTitle>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Users without a department assigned. They cannot participate in department-specific workflows.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{data.filter(u => !u.departmentId).length}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold tracking-tight">{data.filter(u => !u.departmentId).length}</div>
+                {data.filter(u => !u.departmentId).length > 0 && (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+                    Action required
+                  </Badge>
+                )}
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Missing System Roles</CardTitle>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Users with the default Viewer role or no role assigned, meaning they lack edit permissions.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{data.filter(u => !u.systemRole || u.systemRole === "VIEWER").length}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold tracking-tight">{data.filter(u => !u.systemRole || u.systemRole === "VIEWER").length}</div>
+              </div>
             </CardContent>
           </Card>
         </div>

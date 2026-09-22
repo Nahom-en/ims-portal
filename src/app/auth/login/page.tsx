@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Envelope, Lock, Eye, EyeSlash, ArrowRight } from "@phosphor-icons/react";
+import { Envelope, Lock, Eye, EyeSlash, ArrowRight, Certificate } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
@@ -89,9 +89,7 @@ export default function LoginPage() {
             <h1
               className="text-[22px] font-bold leading-snug"
               style={{ color: "var(--ink)", fontFamily: "var(--display)" }}
-            >
-              Authentication
-            </h1>
+            >WELCOME.</h1>
             <p className="text-sm mt-1 font-medium text-gray-600">
               Enter credentials to access portal
             </p>
@@ -203,7 +201,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   Sign In
-                  <ArrowRight className="h-4 w-4" />
+                  
                 </>
               )}
             </Button>
@@ -211,12 +209,12 @@ export default function LoginPage() {
           </form>
 
           {/* Footer note */}
-          <div
-            className="text-[11px] mt-8 text-center font-semibold tracking-wider leading-[1.6]"
-            style={{ color: "var(--muted-2)" }}
-          >
-            ISO CERTIFIED <br />
-            MMCY {new Date().getFullYear()}
+          <div className="mt-8 flex items-center justify-center gap-2 text-slate-500 text-[11px] font-bold tracking-widest uppercase">
+            <Certificate className="h-5 w-5 opacity-90" weight="duotone" style={{ color: "var(--coral)" }} />
+            <div className="text-left leading-[1.4]">
+              ISO CERTIFIED <br />
+              MMCY {new Date().getFullYear()}
+            </div>
           </div>
         </div>
       </main>

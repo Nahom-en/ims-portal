@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import {
   Users,
@@ -8,6 +10,7 @@ import {
   GitMerge,
   SquaresFour,
   ArrowRight,
+  Info,
   LinkBreak,
   ArrowUp,
   ArrowDown,
@@ -151,94 +154,126 @@ export default async function AdminDashboardPage() {
       {/* ── Top Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Users & Roles */}
-        <Card className="group relative overflow-hidden">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Users & Roles</CardTitle>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground" /></span>}></TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-[200px] text-xs">Total active users in the system, broken down by their assigned access level.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-center justify-between">
               <span className="text-3xl font-bold tracking-tight">{activeUsers.length}</span>
               {newUsersCount > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-xs font-medium text-emerald-600">
+                <Badge variant="outline" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
                   <ArrowUp className="h-3 w-3" weight="bold" />
                   {newUsersCount} new
-                </span>
+                </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-2">
               {roleCounts.SYSTEM_ADMIN} Admin · {roleCounts.WRITER} Writer{roleCounts.WRITER !== 1 ? "s" : ""} · {roleCounts.VIEWER} Viewer{roleCounts.VIEWER !== 1 ? "s" : ""}
             </p>
           </CardContent>
-          {/* Hover tooltip overlay */}
-          <div className="absolute inset-0 bg-foreground/90 text-background p-4 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl">
-            <p className="text-xs leading-relaxed">Total active users in the system, broken down by their assigned access level (Admin, Writer, Viewer).</p>
-          </div>
         </Card>
 
-        {/* Workflow Setup */}
-        <Card className="group relative overflow-hidden">
-          <CardHeader className="pb-2">
+{/* Workflow Setup */}
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Workflow Setup</CardTitle>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground" /></span>}></TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-[200px] text-xs">Departments that have a configured approval chain for processing submissions.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tracking-tight">{deptsWithWorkflow.length}</span>
-              <span className="text-sm text-muted-foreground">/ {totalDepts}</span>
-            </div>
-            <p className="text-xs mt-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold tracking-tight">{deptsWithWorkflow.length}</span>
+                <span className="text-sm text-muted-foreground">/ {totalDepts}</span>
+              </div>
               {deptsWithoutWorkflow.length > 0 ? (
-                <span className="text-amber-600 font-medium">{deptsWithoutWorkflow.length} unconfigured</span>
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+                  {deptsWithoutWorkflow.length} unconfigured
+                </Badge>
               ) : (
-                <span className="text-emerald-600 font-medium">All departments covered</span>
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+                  All linked ✓
+                </Badge>
               )}
+            </div>
+            <p className="text-xs mt-2 text-muted-foreground">
+              {deptsWithoutWorkflow.length > 0 ? "Some departments lack approval chains" : "All departments can process submissions"}
             </p>
           </CardContent>
-          <div className="absolute inset-0 bg-foreground/90 text-background p-4 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl">
-            <p className="text-xs leading-relaxed">How many departments have a configured approval chain. Unconfigured departments cannot process any submissions.</p>
-          </div>
         </Card>
 
-        {/* Pending Approvals */}
-        <Card className="group relative overflow-hidden">
-          <CardHeader className="pb-2">
+{/* Pending Approvals */}
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground" /></span>}></TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-[200px] text-xs">Total waiting approval requests. Stalled requests have been pending for over 14 days.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-center justify-between">
               <span className="text-3xl font-bold tracking-tight">{pendingCount}</span>
               {stalledCount > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-xs font-medium text-rose-600">
+                <Badge variant="outline" className="gap-1 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
                   <ArrowDown className="h-3 w-3" weight="bold" />
                   {stalledCount} stalled
-                </span>
+                </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{pendingCount} waiting across all departments</p>
+            <p className="text-xs text-muted-foreground mt-2">{pendingCount} waiting across all departments</p>
           </CardContent>
-          <div className="absolute inset-0 bg-foreground/90 text-background p-4 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl">
-            <p className="text-xs leading-relaxed">Approval requests waiting across all departments. &quot;Stalled&quot; means pending for over 14 days without action.</p>
-          </div>
         </Card>
 
-        {/* Data Gaps */}
-        <Card className="group relative overflow-hidden">
-          <CardHeader className="pb-2">
+{/* Data Gaps */}
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm font-medium text-muted-foreground">Data Gaps</CardTitle>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground" /></span>}></TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-[200px] text-xs">KPIs or Risks missing a parent link (Process or Procedure) won't appear in dashboards.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-center justify-between">
               <span className="text-3xl font-bold tracking-tight">{totalGaps}</span>
-              {totalGaps === 0 && (
-                <span className="text-xs font-medium text-emerald-600">All linked ✓</span>
+              {totalGaps === 0 ? (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+                  All linked ✓
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+                  Action required
+                </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-2">
               {(orphanedKpis || 0)} KPI{(orphanedKpis || 0) !== 1 ? "s" : ""} · {(orphanedRisks || 0)} Risk{(orphanedRisks || 0) !== 1 ? "s" : ""} unlinked
             </p>
           </CardContent>
-          <div className="absolute inset-0 bg-foreground/90 text-background p-4 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl">
-            <p className="text-xs leading-relaxed">KPIs or Risks that are missing a required parent link (Process or Procedure). These records won&apos;t appear in department dashboards.</p>
-          </div>
         </Card>
       </div>
 
@@ -319,7 +354,7 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Department Usage (searchable/sortable) */}
         <div className="lg:col-span-1">
-          <DepartmentUsageList data={deptAdoption} />
+          <DepartmentUsageList departments={deptOptions} />
         </div>
 
         {/* Setup Warnings (dismissable) */}

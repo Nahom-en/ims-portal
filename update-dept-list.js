@@ -1,4 +1,8 @@
-"use client"
+const fs = require('fs');
+let code = fs.readFileSync('src/components/admin/DepartmentUsageList.tsx', 'utf8');
+
+// We rewrite DepartmentUsageList to match SystemActivityChart's data fetching and filtering
+const newCode = `"use client"
 
 import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,10 +36,10 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
       
       let cycleQ = supabase.from("report_cycles").select("id, department_id, reporting_period")
       if (selectedYear !== "ALL") {
-        cycleQ = cycleQ.like("reporting_period", `%${selectedYear}%`)
+        cycleQ = cycleQ.like("reporting_period", \`%\${selectedYear}%\`)
       }
       if (selectedQuarter !== "ALL") {
-        cycleQ = cycleQ.like("reporting_period", `%${selectedQuarter}%`)
+        cycleQ = cycleQ.like("reporting_period", \`%\${selectedQuarter}%\`)
       }
       
       const { data: cycles } = await cycleQ
@@ -134,7 +138,7 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
             </div>
             <CardDescription>
               {loading ? "Loading..." : emptyDepts > 0
-                ? `${emptyDepts} department${emptyDepts > 1 ? "s" : ""} with zero submissions`
+                ? \`\${emptyDepts} department\${emptyDepts > 1 ? "s" : ""} with zero submissions\`
                 : "All departments have active submissions"}
             </CardDescription>
           </div>
@@ -213,7 +217,7 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
                     <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                       <div
                         className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${(dept.objectives / maxVal) * 100}%` }}
+                        style={{ width: \`\${(dept.objectives / maxVal) * 100}%\` }}
                       />
                     </div>
                     <span className="text-xs text-muted-foreground w-5 text-right tabular-nums">{dept.objectives}</span>
@@ -224,7 +228,7 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
                     <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                       <div
                         className="h-full bg-emerald-500 rounded-full transition-all"
-                        style={{ width: `${(dept.kpis / maxVal) * 100}%` }}
+                        style={{ width: \`\${(dept.kpis / maxVal) * 100}%\` }}
                       />
                     </div>
                     <span className="text-xs text-muted-foreground w-5 text-right tabular-nums">{dept.kpis}</span>
@@ -235,7 +239,7 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
                     <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                       <div
                         className="h-full bg-rose-500 rounded-full transition-all"
-                        style={{ width: `${(dept.risks / maxVal) * 100}%` }}
+                        style={{ width: \`\${(dept.risks / maxVal) * 100}%\` }}
                       />
                     </div>
                     <span className="text-xs text-muted-foreground w-5 text-right tabular-nums">{dept.risks}</span>
@@ -249,3 +253,6 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
     </Card>
   )
 }
+`
+
+fs.writeFileSync('src/components/admin/DepartmentUsageList.tsx', newCode);
