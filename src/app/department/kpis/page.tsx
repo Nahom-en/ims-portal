@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, FileCsv, Trash, Lock, CaretDown, CaretRight, Pulse } from "@phosphor-icons/react"
+import { Plus, FileCsv, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, ChartLineUp, CheckCircle, WarningCircle } from "@phosphor-icons/react"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 
 import {
@@ -40,7 +40,7 @@ export default function KPITrackingPage() {
   const [loading, setLoading] = useState(true)
   const [kpiToDelete, setKpiToDelete] = useState<any /* eslint-disable-line @typescript-eslint/no-explicit-any */ | null>(null)
   const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL')
-  const [selectedPeriod, setSelectedPeriod] = useState("Q1-2026")
+  
   const supabase = createClient()
   useEffect(() => {
     async function fetchData() {
@@ -59,9 +59,7 @@ export default function KPITrackingPage() {
           )
         `)
 
-      if (employee.role !== 'SYSTEM_ADMIN') {
-        query = query.eq('processes.department_id', employee.department_id)
-      } else if (departmentFilter !== 'ALL') {
+      if (departmentFilter !== 'ALL') {
         query = query.eq('processes.department_id', departmentFilter)
       }
       
@@ -89,8 +87,23 @@ export default function KPITrackingPage() {
   }, [supabase, employee, departmentFilter])
 
   // Reporting Period
-  const [activeQuarter, setActiveQuarter] = useState("Q1")
-  const [activeYear, setActiveYear] = useState("2026")
+  const currentDate = new Date()
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
+  const actualYear = currentDate.getFullYear().toString()
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
+  const [activeYear, setActiveYear] = useState(actualYear)
+
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   const handleDelete = () => {
     if (kpiToDelete) {
@@ -134,17 +147,26 @@ export default function KPITrackingPage() {
                 onChange={(val) => setDepartmentFilter(val)} 
               />
             )}
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[180px] h-9">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Q1-2026">Q1 2026</SelectItem>
-                <SelectItem value="Q2-2026">Q2 2026</SelectItem>
-                <SelectItem value="Q3-2026">Q3 2026</SelectItem>
-                <SelectItem value="Q4-2026">Q4 2026</SelectItem>
-              </SelectContent>
-            </Select>
+            <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["Q1","Q2","Q3","Q4"].map((q) => (
+                <SelectItem key={q} value={q}>{q}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
             <Button
               className="bg-primary hover:bg-primary/90 text-white gap-2 h-9"
               onClick={() => setIsCreateSheetOpen(true)}
@@ -155,34 +177,76 @@ export default function KPITrackingPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total KPIs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{data.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Average Performance Score</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-500">
-                {data.length ? (data.reduce((acc, k) => acc + (parseFloat(k.achievementPercentage) || 0), 0) / data.length).toFixed(1) : 0}%
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">KPIs Below Target</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{data.filter(d => d.status === 'Below Target').length}</div>
-            </CardContent>
-          </Card>
-        </div>
+        {(() => {
+          const total = data.length;
+          const avgScore = total > 0 ? (data.reduce((acc, k) => acc + (parseFloat(k.achievementPercentage) || 0), 0) / total) : 0;
+          const belowTarget = data.filter(d => d.status === 'Below Target').length;
+          
+          const uniqueProcesses = new Set(data.map(d => d.process)).size;
+          
+          let scoreColor = "text-emerald-600 dark:text-emerald-500";
+          let scoreBg = "bg-emerald-500";
+          let scoreBgTrack = "bg-emerald-100 dark:bg-emerald-950/50";
+          
+          if (avgScore < 50) {
+            scoreColor = "text-destructive";
+            scoreBg = "bg-destructive";
+            scoreBgTrack = "bg-red-100 dark:bg-red-950/50";
+          } else if (avgScore < 80) {
+            scoreColor = "text-amber-600 dark:text-amber-500";
+            scoreBg = "bg-amber-500";
+            scoreBgTrack = "bg-amber-100 dark:bg-amber-950/50";
+          }
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Tracked Metrics</CardTitle>
+                  <ChartLineUp className="h-4 w-4 text-primary opacity-70" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{total}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Across {uniqueProcesses} department process{uniqueProcesses !== 1 ? 'es' : ''}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Overall Achievement</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${scoreColor}`}>
+                    {avgScore.toFixed(1)}%
+                  </div>
+                  <div className={`mt-3 h-1.5 w-full ${scoreBgTrack} rounded-full overflow-hidden`}>
+                    <div className={`h-full ${scoreBg} rounded-full`} style={{ width: `${Math.min(100, Math.max(0, avgScore))}%` }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Average target completion</p>
+                </CardContent>
+              </Card>
+
+              <Card className={belowTarget > 0 ? "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20" : "bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20"}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className={`text-sm font-medium ${belowTarget > 0 ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400'}`}>Underperforming</CardTitle>
+                  {belowTarget > 0 ? (
+                    <WarningCircle className="h-4 w-4 text-destructive opacity-70" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 text-emerald-600 opacity-70" />
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${belowTarget > 0 ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                    {belowTarget > 0 ? belowTarget : 'Targets met'}
+                  </div>
+                  <p className={`text-xs mt-1 ${belowTarget > 0 ? 'text-destructive/80' : 'text-emerald-600/80 dark:text-emerald-400/80'}`}>
+                    {belowTarget > 0 ? 'Metrics requiring intervention' : 'No interventions needed'}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── KPI Data Table ── */}
@@ -190,12 +254,22 @@ export default function KPITrackingPage() {
         <Table>
           <TableHeader className="bg-muted dark:bg-zinc-900/50">
             <TableRow>
-              <TableHead className="h-10 pl-6">Metric</TableHead>
+              <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('name')}>
+                <div className="flex items-center gap-1">Metric {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+              </TableHead>
               <TableHead className="h-10">Responsibility</TableHead>
-              <TableHead className="h-10">Target</TableHead>
-              <TableHead className="h-10">Actual</TableHead>
-              <TableHead className="h-10">Achiev. %</TableHead>
-              <TableHead className="h-10">Status</TableHead>
+              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('target')}>
+                <div className="flex items-center gap-1">Target {sortKey === 'target' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+              </TableHead>
+              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('actual')}>
+                <div className="flex items-center gap-1">Actual {sortKey === 'actual' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+              </TableHead>
+              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('achieved')}>
+                <div className="flex items-center gap-1">Achiev. % {sortKey === 'achieved' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+              </TableHead>
+              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('status')}>
+                <div className="flex items-center gap-1">Status {sortKey === 'status' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+              </TableHead>
               <TableHead className="h-10">Remark/Justification</TableHead>
               <TableHead className="h-10 w-[50px]"></TableHead>
             </TableRow>

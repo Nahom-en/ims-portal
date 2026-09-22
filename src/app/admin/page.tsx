@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Users, Buildings, GitMerge, SquaresFour, UserCircleGear, UsersThree, UserPlus, Eye } from "@phosphor-icons/react"
+import { Users, Buildings, GitMerge, SquaresFour, UserCircleGear, UsersThree, UserPlus, Eye, CheckCircle } from "@phosphor-icons/react/dist/ssr"
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
@@ -160,7 +160,7 @@ export default async function AdminDashboardPage() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
                   <div className="flex items-center gap-2 text-sm font-medium text-emerald-800 dark:text-emerald-400">
-                    <CheckCircleIcon weight="fill" className="h-5 w-5" />
+                    <CheckCircle weight="fill" className="h-5 w-5" />
                     Configured ({deptsWithWorkflows.length})
                   </div>
                 </div>

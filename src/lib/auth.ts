@@ -14,8 +14,29 @@ export async function getCurrentEmployee(supabase: SupabaseClient) {
     console.error("Error fetching employee:", error)
   }
 
-  return employee
+
+  let is_approver = false
+  if (employee && employee.role === 'SYSTEM_ADMIN') {
+    is_approver = true
+  } else if (employee) {
+    const { data: templates } = await supabase.from('workflow_templates').select('steps')
+    if (templates) {
+      for (const t of templates) {
+        const steps = Array.isArray(t.steps) ? t.steps : []
+        for (const step of steps) {
+          if (step.approverId === employee.id || step.roleId === employee.company_role_id) {
+            is_approver = true
+            break
+          }
+        }
+        if (is_approver) break
+      }
+    }
+  }
+
+  return employee ? { ...employee, is_approver } : null
 }
+
 
 export async function requireSystemAdmin(supabase: SupabaseClient) {
   const employee = await getCurrentEmployee(supabase)

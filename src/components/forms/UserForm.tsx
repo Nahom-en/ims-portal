@@ -26,6 +26,7 @@ export interface UserFormData {
   systemRole: SystemRole
   status: UserStatus
   companyRoleId: string
+  visibilityScope?: 'ALL' | 'OWN' | string[]
 }
 
 export interface AvailableDepartment {
@@ -90,6 +91,7 @@ export default function UserForm({
       systemRole: "VIEWER",
       status: "Active",
       companyRoleId: "",
+      visibilityScope: "OWN",
     }
   })
 
@@ -175,6 +177,23 @@ export default function UserForm({
               {departments.map((dept) => (
                 <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Cross-Department Access */}
+        <div className="space-y-2">
+          <Label>Cross-Department Access</Label>
+          <Select
+            value={formData.visibilityScope === 'ALL' ? 'ALL' : 'OWN'}
+            onValueChange={(val) => setFormData({ ...formData, visibilityScope: val as any })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select access level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="OWN">Own Department Only</SelectItem>
+              <SelectItem value="ALL">All Departments (Global View)</SelectItem>
             </SelectContent>
           </Select>
         </div>

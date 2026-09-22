@@ -105,6 +105,7 @@ export default function UsersPage() {
             companyRoleId: e.company_role_id || "",
             systemRole: uiRole,
             status: e.is_active ? "Active" : "Suspended",
+            visibilityScope: (e.custom_metadata as any)?.visibility_scope || "OWN",
           }
         })
         setData(mapped as UserFormData[])
@@ -184,7 +185,7 @@ export default function UsersPage() {
         company_role_id: resolvedRoleId,
         role: dbRole as any,
         is_active: formData.status === "Active",
-        custom_metadata: {}
+        custom_metadata: { visibility_scope: formData.visibilityScope || "OWN" }
       })
       .select('id')
       .single()
@@ -224,7 +225,7 @@ export default function UsersPage() {
           company_role_id: resolvedRoleId,
           role: dbRole as any,
           is_active: formData.status === "Active",
-          custom_metadata: {}
+          custom_metadata: { visibility_scope: formData.visibilityScope || "OWN" }
         })
         .eq('id', formData.id)
 

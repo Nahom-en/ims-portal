@@ -8,8 +8,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ShieldWarning, Trash, Lock, CaretDown, CaretRight, Warning } from "@phosphor-icons/react"
-import { RiskMatrix } from "@/components/dashboard/RiskMatrix"
+import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning } from "@phosphor-icons/react"
 
 import {
   Table,
@@ -69,12 +68,15 @@ export default function RiskRegisterPage() {
   const [loading, setLoading] = useState(true)
   const [riskToDelete, setRiskToDelete] = useState<any | null>(null /* eslint-disable-line @typescript-eslint/no-explicit-any */)
   const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || null)
-  const [selectedPeriod, setSelectedPeriod] = useState("Q1-2026")
+  
   const supabase = createClient()
 
   // Reporting Period
-  const [activeQuarter, setActiveQuarter] = useState("Q1")
-  const [activeYear, setActiveYear] = useState("2026")
+  const currentDate = new Date()
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
+  const actualYear = currentDate.getFullYear().toString()
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
+  const [activeYear, setActiveYear] = useState(actualYear)
 
   useEffect(() => {
   }, [employee, departmentFilter])
@@ -93,9 +95,7 @@ export default function RiskRegisterPage() {
           risk_procedures!inner ( procedure_name, department_id )
         `)
       
-      if (employee.role !== 'SYSTEM_ADMIN') {
-        query = query.eq('risk_procedures.department_id', employee.department_id)
-      } else if (departmentFilter !== 'ALL') {
+      if (departmentFilter !== 'ALL') {
         query = query.eq('risk_procedures.department_id', departmentFilter)
       }
       
@@ -141,6 +141,18 @@ export default function RiskRegisterPage() {
     })
   }
 
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
   const handleDelete = () => {
     if (riskToDelete) {
       setData(data.filter(r => r.id !== riskToDelete.id))
@@ -165,17 +177,26 @@ export default function RiskRegisterPage() {
                 onChange={(val) => setDepartmentFilter(val)} 
               />
             )}
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[180px] h-9">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Q1-2026">Q1 2026</SelectItem>
-                <SelectItem value="Q2-2026">Q2 2026</SelectItem>
-                <SelectItem value="Q3-2026">Q3 2026</SelectItem>
-                <SelectItem value="Q4-2026">Q4 2026</SelectItem>
-              </SelectContent>
-            </Select>
+            <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["Q1","Q2","Q3","Q4"].map((q) => (
+                <SelectItem key={q} value={q}>{q}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
             <Button
               className="bg-primary hover:bg-primary/90 text-white gap-2 h-9"
               onClick={() => setIsCreateSheetOpen(true)}
@@ -214,12 +235,7 @@ export default function RiskRegisterPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <RiskMatrix 
-          period={selectedPeriod} 
-          departmentId={departmentFilter !== 'ALL' && departmentFilter !== null ? departmentFilter : undefined} 
-        />
-      </div>
+      
 
       {/* ── Risk Data Table ── */}
       <div className="rounded-md border bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">

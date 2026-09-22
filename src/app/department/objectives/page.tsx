@@ -5,10 +5,17 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass } from "@phosphor-icons/react"
+import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass, Warning, CheckCircle } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -20,6 +27,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { useEmployee } from "@/lib/employee-context"
+import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 
 export default function ObjectivesPage() {
@@ -28,6 +36,20 @@ export default function ObjectivesPage() {
   const employee = useEmployee()
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(null)
+  
+  // Set default once employee is loaded
+  useEffect(() => {
+    if (employee && departmentFilter === null) {
+      setDepartmentFilter(employee.department_id || 'ALL')
+    }
+  }, [employee, departmentFilter])
+    const currentDate = new Date()
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
+  const actualYear = currentDate.getFullYear().toString()
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
+  const [activeYear, setActiveYear] = useState(actualYear)
+
   const [departmentId, setDepartmentId] = useState<string>("")
   
   const [search, setSearch] = useState('')
@@ -38,17 +60,18 @@ export default function ObjectivesPage() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!employee?.department_id) {
-        setLoading(false)
-        return
+      if (departmentFilter === null) return;
+      if (departmentFilter !== 'ALL') {
+        setDepartmentId(departmentFilter)
+      } else {
+        setDepartmentId(employee?.department_id || '')
       }
-      setDepartmentId(employee.department_id)
 
-      const { data: objs } = await supabase
-        .from('objective_definitions')
-        .select('*')
-        .eq('department_id', employee.department_id)
-        .eq('is_active', true)
+      let query = supabase.from('objective_definitions').select('*').eq('is_active', true)
+      if (departmentFilter !== 'ALL') {
+        query = query.eq('department_id', departmentFilter)
+      }
+      const { data: objs } = await query
         
       if (objs) {
         setData(objs.map(o => ({
@@ -62,7 +85,7 @@ export default function ObjectivesPage() {
       setLoading(false)
     }
     fetchData()
-  }, [employee, supabase])
+  }, [employee, supabase, departmentFilter])
 
   const filteredData = data.filter(d =>
     d.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -122,10 +145,29 @@ export default function ObjectivesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Objectives</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2 h-9">
-            <Funnel className="h-4 w-4" />
-            Filter
-          </Button>
+                    {departmentFilter !== null && (
+            <DepartmentFilter value={departmentFilter} onChange={setDepartmentFilter} />
+          )}
+          <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["Q1","Q2","Q3","Q4"].map((q) => (
+                <SelectItem key={q} value={q}>{q}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button onClick={() => router.push("/department/objectives/new")} className="gap-2 h-9">
             <Plus className="h-4 w-4" />
             New Objective
@@ -133,32 +175,56 @@ export default function ObjectivesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Objectives</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completed / On Track</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-500">{data.filter(d => d.status === 'Completed' || d.status === 'On Track').length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">At Risk / Overdue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{data.filter(d => d.status === 'At Risk' || d.status === 'Overdue').length}</div>
-          </CardContent>
-        </Card>
-      </div>
+      {(() => {
+        const total = data.length;
+        const healthy = data.filter(d => d.status === 'Completed' || d.status === 'On Track').length;
+        const atRisk = data.filter(d => d.status === 'At Risk' || d.status === 'Overdue').length;
+        const healthPercent = total > 0 ? Math.round((healthy / total) * 100) : 0;
+        
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Active Objectives</CardTitle>
+                <Target className="h-4 w-4 text-primary opacity-70" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{total}</div>
+                <p className="text-xs text-muted-foreground mt-1">For selected period</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Health Score</CardTitle>
+                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500 opacity-70" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{healthPercent}% Healthy</div>
+                <div className="mt-3 h-1.5 w-full bg-emerald-100 dark:bg-emerald-950/50 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${healthPercent}%` }} />
+                </div>
+                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-2">{healthy} of {total} objectives on track</p>
+              </CardContent>
+            </Card>
+
+            <Card className={atRisk > 0 ? "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20" : ""}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className={`text-sm font-medium ${atRisk > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>Attention Required</CardTitle>
+                {atRisk > 0 && <Warning className="h-4 w-4 text-destructive opacity-70" />}
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${atRisk > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                  {atRisk > 0 ? atRisk : 'All clear'}
+                </div>
+                <p className={`text-xs mt-1 ${atRisk > 0 ? 'text-destructive/80' : 'text-muted-foreground'}`}>
+                  {atRisk > 0 ? 'At risk or overdue' : 'No interventions needed'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      })()}
 
       <div className="flex items-center gap-2 max-w-sm relative mt-2">
         <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />

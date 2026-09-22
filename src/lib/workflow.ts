@@ -89,6 +89,32 @@ export async function approveStep(
   const steps = Array.isArray(request.chain_snapshot) ? request.chain_snapshot : []
   const currentIndex = request.current_step_index
   
+  // STRICT AUTHORIZATION CHECK
+  const { data: actor } = await supabase.from('employees').select('id, company_role_id, role').eq('id', params.actorId).single()
+  if (!actor) throw new Error("Actor not found")
+
+  // System Admin can bypass
+  if (actor.role !== 'SYSTEM_ADMIN') {
+    if (currentIndex === -1) {
+      const { data: dept } = await supabase.from('departments').select('manager_id').eq('id', request.department_id).single()
+      if (dept?.manager_id !== params.actorId) {
+        throw new Error("Unauthorized: Only the department manager can pre-approve this request.")
+      }
+    } else {
+      const currentStep = steps[currentIndex]
+      let authorized = false
+      if (currentStep?.approverId && currentStep.approverId === params.actorId) {
+        authorized = true
+      } else if (currentStep?.roleId && currentStep.roleId === actor.company_role_id) {
+        authorized = true
+      }
+      
+      if (!authorized) {
+        throw new Error("Unauthorized: You are not configured as the approver for this step.")
+      }
+    }
+  }
+
   if (currentIndex === -1) {
     await supabase.from('approval_requests').update({ current_step_index: 0 }).eq('id', request.id)
     await supabase.from('approval_actions').insert({

@@ -74,6 +74,7 @@ export function AppSidebar({ employee }: { employee: Employee }) {
             <SidebarMenu className="gap-0.5">
               {primaryNav.map((item) => {
                 if (item.hideFrom && item.hideFrom.includes(employee?.role)) return null
+                if (item.url === "/department/approvals" && !employee.is_approver && employee.role !== "SYSTEM_ADMIN") return null
                 
                 return (
                   <SidebarMenuItem key={item.title}>

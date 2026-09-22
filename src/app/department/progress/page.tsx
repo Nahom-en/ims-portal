@@ -2,15 +2,49 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useEmployee } from "@/lib/employee-context"
+import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Check, ArrowRight, CircleDashed } from "@phosphor-icons/react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Check, ArrowRight, CircleDashed, CaretUp, CaretDown } from "@phosphor-icons/react"
 
 export default function ProgressPage() {
   const employee = useEmployee()
   const [data, setData] = useState<any[]>([])
+
+  const currentDate = new Date()
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
+  const actualYear = currentDate.getFullYear().toString()
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
+  const [activeYear, setActiveYear] = useState(actualYear)
+  
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
   const [loading, setLoading] = useState(true)
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(null)
+  
+  // Set default once employee is loaded
+  useEffect(() => {
+    if (employee && departmentFilter === null) {
+      setDepartmentFilter(employee.department_id || 'ALL')
+    }
+  }, [employee, departmentFilter])
 
   useEffect(() => {
     async function fetchData() {
@@ -34,7 +68,7 @@ export default function ProgressPage() {
         .order('created_at', { ascending: false })
 
       if (employee.role !== 'SYSTEM_ADMIN') {
-        query = query.eq('department_id', employee.department_id)
+        query = query
       }
       
       const { data: requests } = await query
@@ -70,9 +104,7 @@ export default function ProgressPage() {
     <div className="flex-1 p-4 md:p-6 space-y-8 w-full max-w-[1600px] mx-auto relative">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Approval Workflow Pipeline</h1>
-        <p className="text-sm text-muted-foreground">
-          Track the progress of all department objectives, KPIs, and risks through the approval stages.
-        </p>
+        
       </div>
 
       {/* ── Stepper Visual ── */}

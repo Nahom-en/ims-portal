@@ -90,10 +90,10 @@ export default function LoginPage() {
               className="text-[22px] font-bold leading-snug"
               style={{ color: "var(--ink)", fontFamily: "var(--display)" }}
             >
-              Welcome Back
+              Authentication
             </h1>
             <p className="text-sm mt-1 font-medium text-gray-600">
-              Sign in to your account
+              Enter credentials to access portal
             </p>
           </div>
 

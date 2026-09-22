@@ -29,7 +29,14 @@ export default function DepartmentDashboardPage() {
   // Time-travel state
   const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
   const [activeYear, setActiveYear] = useState(actualYear)
-  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL')
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(null)
+  
+  // Set default once employee is loaded
+  useEffect(() => {
+    if (employee && departmentFilter === null) {
+      setDepartmentFilter(employee.department_id || 'ALL')
+    }
+  }, [employee, departmentFilter])
   
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -89,9 +96,7 @@ export default function DepartmentDashboardPage() {
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Overview of objectives, KPIs, and risk registers for the selected period.
-          </p>
+          
         </div>
 
         {/* ── Global Period Picker ── */}

@@ -23,7 +23,7 @@ export function DepartmentFilter({
 
   useEffect(() => {
     async function fetchDepts() {
-      if (employee?.role !== 'SYSTEM_ADMIN') return
+      if (employee?.role !== 'SYSTEM_ADMIN' && employee?.visibility_scope === 'OWN') return
       
       const supabase = createClient()
       const { data } = await supabase.from('departments').select('id, department_name').order('department_name')
@@ -34,7 +34,11 @@ export function DepartmentFilter({
     fetchDepts()
   }, [employee])
 
-  if (employee?.role !== 'SYSTEM_ADMIN') {
+  // Allow if system admin, or if visibility_scope allows other departments
+  const vScope = employee?.visibility_scope;
+  const hasAccess = employee?.role === 'SYSTEM_ADMIN' || vScope === 'ALL' || (Array.isArray(vScope) && vScope.length > 0);
+  
+  if (!hasAccess) {
     return null
   }
 
@@ -52,6 +56,7 @@ export function DepartmentFilter({
         )}
         {departments
           .filter(d => d.id !== employee?.department_id)
+          .filter(d => employee?.role === 'SYSTEM_ADMIN' || employee?.visibility_scope === 'ALL' || (Array.isArray(employee?.visibility_scope) && employee.visibility_scope.includes(d.id)))
           .map(dept => (
             <SelectItem key={dept.id} value={dept.id}>
               {dept.name}

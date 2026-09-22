@@ -4,9 +4,16 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { CheckCircle, Tray, PaperPlaneRight, ArrowRight, Signature, XCircle, CircleDashed } from "@phosphor-icons/react"
+import { CheckCircle, Tray, PaperPlaneRight, ArrowRight, Signature, XCircle, CircleDashed, CaretUp, CaretDown } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { 
   Table, 
   TableBody, 
@@ -29,11 +36,30 @@ export default function ApprovalsPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [refreshIndex, setRefreshIndex] = useState(0)
 
+  const currentDate = new Date()
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
+  const actualYear = currentDate.getFullYear().toString()
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
+  const [activeYear, setActiveYear] = useState(actualYear)
+
+
   const employee = useEmployee()
   const employeeId = employee?.id
   const employeeRole = employee?.company_role_id
 
   const supabase = createClient()
+  if (employee && !employee.is_approver && employee.role !== 'SYSTEM_ADMIN') {
+    return (
+      <div className="flex-1 p-8 w-full max-w-[1600px] mx-auto flex flex-col items-center justify-center min-h-[50vh]">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">Access Denied</h1>
+        <p className="text-muted-foreground text-center max-w-md">
+          You do not have the required permissions to view the Approvals Hub. 
+          Please contact your System Administrator if you believe this is an error.
+        </p>
+      </div>
+    )
+  }
+
 
   useEffect(() => {
     async function fetchData() {
@@ -50,11 +76,8 @@ export default function ApprovalsPage() {
           is_delegated,
           updated_at,
           requested_by,
-          departments ( department_name, manager_id ),
-          employees ( full_name ),
-          workflow_templates (
-             workflow_template_steps ( id, step_order, label, company_role_id )
-          )
+          chain_snapshot,
+          departments!inner ( department_name ), employees ( firstname, lastname )
         `)
         .order('updated_at', { ascending: false })
 
@@ -68,25 +91,34 @@ export default function ApprovalsPage() {
         const inbox: any[] = []
         const outbox: any[] = []
 
-        for (const r of reqs) {
-          const templates = Array.isArray(r.workflow_templates) ? r.workflow_templates[0] : r.workflow_templates
-          const steps = Array.isArray(templates?.workflow_template_steps) ? templates.workflow_template_steps : []
-          steps.sort((a: any, b: any) => a.step_order - b.step_order)
+        for (const r of reqs as any) {
+          const steps = Array.isArray(r.chain_snapshot) ? r.chain_snapshot : []
           
           let currentStepLabel = 'Unknown Step'
           let isMyTurn = false
           
           if (r.current_step_index === -1) {
-            currentStepLabel = 'Department Manager Pre-Approval'
-            const depts = Array.isArray(r.departments) ? r.departments[0] : r.departments
-            if (depts?.manager_id === employeeId) {
-              isMyTurn = true
-            }
-          } else {
+            currentStepLabel = 'Department Pre-Approval'
+            // Manager pre-approval removed from schema temporarily, defaulting to false unless we track it
+            // Assuming delegator pre-approves, but for strictness, rely on workflow steps directly
+            // Actually, if it's -1, it's a pre-approval. We will fall back to isMyTurn = false for now
+            // since the new schema handles dynamic approvers directly in step 0.
+            isMyTurn = false
+          } else if (r.current_step_index >= 0 && r.current_step_index < steps.length) {
             const currentStep = steps[r.current_step_index]
             currentStepLabel = currentStep?.label || 'Unknown Step'
-            if (currentStep?.company_role_id === employeeRole) {
-              isMyTurn = true
+            
+            // STRICT AUTHORIZATION CHECK
+            if (currentStep?.approverId) {
+              // Direct user assignment
+              if (currentStep.approverId === employeeId) {
+                isMyTurn = true
+              }
+            } else if (currentStep?.roleId) {
+              // Role assignment
+              if (currentStep.roleId === employeeRole) {
+                isMyTurn = true
+              }
             }
           }
           
@@ -94,13 +126,15 @@ export default function ApprovalsPage() {
           if (r.status === 'PUBLISHED') statusLabel = 'Published'
           else if (r.status === 'REJECTED') statusLabel = 'Rejected'
 
+          const depts = Array.isArray(r.departments) ? r.departments[0] : r.departments
+
           const mapped = {
             id: r.id,
             title: `${(r.entity_type as string).toUpperCase()} Submission`,
-            name: `${r.departments?.department_name || 'Department'} ${r.entity_type}`,
-            processName: r.departments?.department_name || 'General',
+            name: `${depts?.department_name || 'Department'} ${r.entity_type}`,
+            processName: depts?.department_name || 'General',
             type: r.entity_type.charAt(0).toUpperCase() + r.entity_type.slice(1),
-            author: r.employees?.full_name || 'Unknown',
+            author: r.employees ? `${r.employees.firstname} ${r.employees.lastname}` : 'Unknown',
             workflowStatus: statusLabel,
             currentStepLabel,
             lastUpdated: new Date(r.updated_at).toLocaleDateString(),
@@ -197,9 +231,29 @@ export default function ApprovalsPage() {
             <CheckCircle className="h-6 w-6 text-primary dark:text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">Approvals Hub</h1>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your pending approvals and track the status of your submissions.
-          </p>
+          
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["Q1","Q2","Q3","Q4"].map((q) => (
+                <SelectItem key={q} value={q}>{q}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -324,6 +378,29 @@ interface TrayTableProps {
 }
 
 function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps) {
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (!sortKey) return 0
+    let aVal = a[sortKey]
+    let bVal = b[sortKey]
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
@@ -332,7 +409,7 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
         </div>
         <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">You&apos;re all caught up!</h3>
         <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-          There are no items currently waiting for your review. When someone submits an item to you, it will appear here.
+          Your approval queue is currently empty.
         </p>
       </div>
     )
@@ -342,15 +419,21 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
     <Table>
       <TableHeader className="bg-muted dark:bg-zinc-900/50">
         <TableRow>
-          <TableHead className="h-10 pl-6">Type</TableHead>
-          <TableHead className="h-10">Name</TableHead>
-          <TableHead className="h-10">Department</TableHead>
+          <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('type')}>
+            <div className="flex items-center gap-1">Type {sortKey === 'type' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+          </TableHead>
+          <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
+            <div className="flex items-center gap-1">Name {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+          </TableHead>
+          <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('processName')}>
+            <div className="flex items-center gap-1">Department {sortKey === 'processName' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+          </TableHead>
           <TableHead className="h-10">Waiting On</TableHead>
           <TableHead className="h-10 text-right pr-6">Action</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
+        {sortedItems.map((item) => (
           <TableRow key={item.id} className="hover:bg-muted dark:hover:bg-slate-900/50 group">
             <TableCell className="pl-6">
               <Badge variant="outline" className="text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-800">
@@ -406,6 +489,29 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
 
 
 function OutboxTable({ items }: { items: any[] }) {
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (!sortKey) return 0
+    let aVal = a[sortKey]
+    let bVal = b[sortKey]
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-4">
@@ -424,15 +530,21 @@ function OutboxTable({ items }: { items: any[] }) {
     <Table>
       <TableHeader className="bg-muted dark:bg-zinc-900/50">
         <TableRow>
-          <TableHead className="h-10 pl-6">Type</TableHead>
-          <TableHead className="h-10">Name</TableHead>
-          <TableHead className="h-10">Status</TableHead>
+          <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('type')}>
+            <div className="flex items-center gap-1">Type {sortKey === 'type' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+          </TableHead>
+          <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
+            <div className="flex items-center gap-1">Name {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+          </TableHead>
+          <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('workflowStatus')}>
+            <div className="flex items-center gap-1">Status {sortKey === 'workflowStatus' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+          </TableHead>
           <TableHead className="h-10">Current Step</TableHead>
           <TableHead className="h-10 text-right pr-6"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
+        {sortedItems.map((item) => (
           <TableRow key={item.id} className="hover:bg-muted dark:hover:bg-slate-900/50">
             <TableCell className="pl-6">
               <Badge variant="outline" className={item.type === "Objective" ? "text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-800" : "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800"}>
