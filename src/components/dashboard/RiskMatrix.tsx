@@ -72,7 +72,7 @@ export function RiskMatrix({ period, departmentId, refreshKey }: { period?: stri
       <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1.5">
           <CardTitle>Risk Heatmap</CardTitle>
-          <CardDescription>Risk distribution for {period || "current period"}</CardDescription>
+          <CardDescription className="whitespace-nowrap">Risk distribution for {period || "current period"}</CardDescription>
         </div>
         {/* Legend at Top Right */}
         <div className="flex flex-wrap items-center gap-3 sm:justify-end shrink-0">
@@ -86,13 +86,16 @@ export function RiskMatrix({ period, departmentId, refreshKey }: { period?: stri
       </CardHeader>
       <CardContent className="flex-1">
         {/* h-[300px] matching ChartContainer */}
-        <div className="h-[300px] w-full relative pl-6 pb-6 pt-2 pr-2">
-          {/* Y-axis label */}
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-medium text-muted-foreground tracking-wider uppercase transform origin-center">
-            Likelihood
+        <div className="flex flex-row h-[300px] w-full items-stretch pt-2">
+          {/* Y-axis label container with perfect flex centering */}
+          <div className="w-8 shrink-0 flex items-center justify-center pr-2">
+            <span className="-rotate-90 text-[10px] font-semibold text-muted-foreground tracking-widest uppercase whitespace-nowrap">
+              Likelihood
+            </span>
           </div>
           
-          <div className="grid grid-cols-5 gap-1 h-full w-full">
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="grid grid-cols-5 gap-1.5 flex-1 w-full">
             {levels.map((likelihood) => (
               levels.slice().reverse().map((severity) => {
                 const count = getRiskCount(likelihood, severity)
@@ -124,10 +127,13 @@ export function RiskMatrix({ period, departmentId, refreshKey }: { period?: stri
               })
             ))}
           </div>
-
-          {/* X-axis label */}
-          <div className="absolute bottom-0 left-6 right-2 text-center text-[10px] font-medium text-muted-foreground tracking-wider uppercase mt-2">
-            Severity
+            
+            {/* X-axis label container */}
+            <div className="h-8 shrink-0 flex items-center justify-center pt-2">
+              <span className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase">
+                Severity
+              </span>
+            </div>
           </div>
         </div>
       </CardContent>
