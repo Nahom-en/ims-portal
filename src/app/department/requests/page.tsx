@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useEmployee } from "@/lib/employee-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MagnifyingGlass, Funnel } from "@phosphor-icons/react";
 import { TableSkeleton } from "@/components/shared/TableSkeleton";
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
@@ -15,6 +16,7 @@ export default function RequestsPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [entityFilter, setEntityFilter] = useState("ALL");
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   
   // Pipeline state
@@ -89,7 +91,7 @@ export default function RequestsPage() {
         </div>
       ) : !loading && data.length === 0 ? (
         <div className="w-full bg-white dark:bg-zinc-950 border border-border dark:border-zinc-800 rounded-lg p-6 shadow-sm mb-6 flex flex-col items-center justify-center h-32 text-muted-foreground">
-          You haven\haven'tapos;t submitted any requests yet.
+          You haven&apos;t submitted any requests yet.
         </div>
       ) : null}
 
@@ -106,8 +108,21 @@ export default function RequestsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Funnel className="h-4 w-4" /> Filter by Entity
+        <div className="flex items-center gap-2">
+          <Select value={entityFilter} onValueChange={setEntityFilter}>
+            <SelectTrigger className="w-[140px] h-9 text-sm bg-muted/50 dark:bg-zinc-900/50">
+              <div className="flex items-center gap-2">
+                <Funnel className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="All Types" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Types</SelectItem>
+              <SelectItem value="objective">Objectives</SelectItem>
+              <SelectItem value="kpi">KPIs</SelectItem>
+              <SelectItem value="risk">Risks</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -129,6 +144,7 @@ export default function RequestsPage() {
               <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No requests found.</TableCell></TableRow>
             ) : (
               data.filter(row => {
+              if (entityFilter !== "ALL" && row.entity_type !== entityFilter) return false;
               if (!search) return true
               const term = search.toLowerCase()
               const entityName = row.entity_type === 'objective' ? 'Objective' : row.entity_type === 'kpi' ? 'KPI' : 'Risk'

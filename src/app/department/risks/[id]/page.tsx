@@ -64,6 +64,10 @@ export default function RiskDetailsPage() {
           })))
         }
 
+        // Fetch processes
+        const { data: procs } = await supabase.from("processes").select("id, name").eq("department_id", deptId)
+        if (procs) setProcesses(procs)
+
         const { data: cycle } = await supabase
           .from("report_cycles")
           .select("id, workflow_status")
@@ -233,7 +237,7 @@ export default function RiskDetailsPage() {
             initialData={risk}
             mode={isLocked ? "view-all" : "edit-plan"}
             readOnly={isLocked}
-            processes={mockProcesses}
+            processes={processes}
             availableObjectives={availableObjectives}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/risks")}
@@ -246,7 +250,7 @@ export default function RiskDetailsPage() {
             initialData={risk}
             mode={isLocked ? "view-all" : "review-progress"}
             readOnly={isLocked}
-            processes={mockProcesses}
+            processes={processes}
             availableObjectives={availableObjectives}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/risks")}

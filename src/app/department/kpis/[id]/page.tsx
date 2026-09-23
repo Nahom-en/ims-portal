@@ -35,6 +35,7 @@ export default function KpiDetailsPage() {
   const [approvalLogs, setApprovalLogs] = useState<any[]>([])
   const [cycleStatus, setCycleStatus] = useState<string | null>(null)
   const [workflowSteps, setWorkflowSteps] = useState<any[]>([])
+  const [processes, setProcesses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -57,6 +58,10 @@ export default function KpiDetailsPage() {
         // Fetch workflow template steps
         const { data: wf } = await supabase.from("workflow_templates").select("steps").eq("department_id", deptId).maybeSingle()
         if (wf && wf.steps) setWorkflowSteps(wf.steps as any[])
+
+        // Fetch processes
+        const { data: procs } = await supabase.from("processes").select("id, name").eq("department_id", deptId)
+        if (procs) setProcesses(procs)
 
         const { data: cycle } = await supabase
           .from("report_cycles")
@@ -254,7 +259,7 @@ export default function KpiDetailsPage() {
             initialData={kpi}
             mode={isLocked ? "view-all" : "edit-plan"}
             readOnly={isLocked}
-            processes={mockProcesses}
+            processes={processes}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/kpis")}
           />
@@ -266,7 +271,7 @@ export default function KpiDetailsPage() {
             initialData={kpi}
             mode={isLocked ? "view-all" : "review-progress"}
             readOnly={isLocked}
-            processes={mockProcesses}
+            processes={processes}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/kpis")}
           />

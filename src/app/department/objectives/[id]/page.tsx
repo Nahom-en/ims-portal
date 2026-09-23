@@ -40,6 +40,7 @@ export default function ObjectiveDetailsPage() {
   const [approvalLogs, setApprovalLogs] = useState<any[]>([])
   const [cycleStatus, setCycleStatus] = useState<string | null>(null)
   const [workflowSteps, setWorkflowSteps] = useState<any[]>([])
+  const [processes, setProcesses] = useState<any[]>([])
   const [availableKpis, setAvailableKpis] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -77,6 +78,10 @@ export default function ObjectiveDetailsPage() {
             processName: k.processes?.name || "Unknown Process"
           })))
         }
+
+        // Fetch processes
+        const { data: procs } = await supabase.from("processes").select("id, name").eq("department_id", data.department_id)
+        if (procs) setProcesses(procs)
 
         const { data: cycle } = await supabase
           .from("report_cycles")
@@ -277,7 +282,7 @@ export default function ObjectiveDetailsPage() {
             initialData={objective}
             mode={isLocked ? "view-all" : "edit-plan"}
             readOnly={isLocked}
-            processes={mockProcesses}
+            processes={processes}
             availableKpis={availableKpis}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/objectives")}
@@ -290,7 +295,7 @@ export default function ObjectiveDetailsPage() {
             initialData={objective}
             mode={isLocked ? "view-all" : "review-progress"}
             readOnly={isLocked}
-            processes={mockProcesses}
+            processes={processes}
             availableKpis={availableKpis}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/objectives")}
