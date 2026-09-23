@@ -2,6 +2,7 @@
 "use client"
 
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper"
+import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -28,6 +29,7 @@ import Link from "next/link"
 import { useEmployee } from "@/lib/employee-context"
 
 export default function ApprovalsPage() {
+  const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"inbox" | "outbox">("inbox")
   const [inboxItems, setTrayItems] = useState<any[]>([])
   const [outboxItems, setOutboxItems] = useState<any[]>([])
@@ -49,17 +51,7 @@ export default function ApprovalsPage() {
   const employeeRole = employee?.company_role_id
 
   const supabase = createClient()
-  if (employee && !employee.is_approver && employee.role !== 'SYSTEM_ADMIN') {
-    return (
-      <div className="flex-1 p-8 w-full max-w-[1600px] mx-auto flex flex-col items-center justify-center min-h-[50vh]">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">Access Denied</h1>
-        <p className="text-muted-foreground text-center max-w-md">
-          You do not have the required permissions to view the Approvals Hub. 
-          Please contact your System Administrator if you believe this is an error.
-        </p>
-      </div>
-    )
-  }
+  
 
 
   useEffect(() => {
@@ -223,6 +215,18 @@ export default function ApprovalsPage() {
     setRefreshIndex(prev => prev + 1)
   }
 
+  if (employee && !employee.is_approver && employee.role !== 'SYSTEM_ADMIN') {
+    return (
+      <div className="flex-1 p-8 w-full max-w-[1600px] mx-auto flex flex-col items-center justify-center min-h-[50vh]">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mb-2">Access Denied</h1>
+        <p className="text-muted-foreground text-center max-w-md">
+          You do not have the required permissions to view the Approvals Hub. 
+          Please contact your System Administrator if you believe this is an error.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
       {/* ── Header ── */}
@@ -303,7 +307,7 @@ export default function ApprovalsPage() {
             isProcessing={isProcessing}
           />
         ) : (
-          <OutboxTable items={outboxItems} />
+          <OutboxTable items={outboxItems} isLoading={isLoading} />
         )}
       </div>
 
@@ -378,7 +382,7 @@ interface TrayTableProps {
   isProcessing: boolean
 }
 
-function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps) {
+function TrayTable({ items, onApprove, onReject, isProcessing, isLoading }: TrayTableProps & { isLoading?: boolean }) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   
@@ -435,7 +439,18 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
         </TableRow>
       </TableHeader>
       <TableBody>
-        {sortedItems.map((item) => (
+        {isLoading ? (
+          <TableSkeleton columns={7} rows={3} />
+        ) : sortedItems.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
+              <div className="flex flex-col items-center justify-center gap-2">
+                <CheckCircle className="h-6 w-6 text-emerald-500" />
+                <p>Inbox zero! You're all caught up.</p>
+              </div>
+            </TableCell>
+          </TableRow>
+        ) : sortedItems.map((item) => (
           <TableRow key={item.id} className="hover:bg-muted dark:hover:bg-slate-900/50 group">
             <TableCell className="pl-6">
               <Badge variant="outline" className="text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-800">
@@ -491,7 +506,7 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
 }
 
 
-function OutboxTable({ items }: { items: any[] }) {
+function OutboxTable({ items, isLoading }: { items: any[], isLoading?: boolean }) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   
@@ -548,7 +563,18 @@ function OutboxTable({ items }: { items: any[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {sortedItems.map((item) => (
+        {isLoading ? (
+          <TableSkeleton columns={5} rows={3} />
+        ) : sortedItems.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+              <div className="flex flex-col items-center justify-center gap-2">
+                <Tray className="h-6 w-6 text-muted-foreground/30" />
+                <p>No outbox items found.</p>
+              </div>
+            </TableCell>
+          </TableRow>
+        ) : sortedItems.map((item) => (
           <TableRow key={item.id} className="hover:bg-muted dark:hover:bg-slate-900/50">
             <TableCell className="pl-6">
               <Badge variant="outline" className={item.type === "Objective" ? "text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-800" : "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800"}>
