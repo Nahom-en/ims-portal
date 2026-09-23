@@ -1,4 +1,5 @@
-"use client"
+"use client";
+import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState, useEffect } from "react"

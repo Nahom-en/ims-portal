@@ -1,4 +1,5 @@
 "use client";
+import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 

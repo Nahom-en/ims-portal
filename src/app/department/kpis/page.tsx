@@ -1,4 +1,5 @@
 "use client";
+import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { useState, useEffect } from "react"
