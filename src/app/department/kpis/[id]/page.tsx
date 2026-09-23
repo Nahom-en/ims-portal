@@ -57,7 +57,7 @@ export default function KpiDetailsPage() {
       if (deptId) {
         // Fetch workflow template steps
         const { data: wf } = await supabase.from("workflow_templates").select("steps").eq("department_id", deptId).maybeSingle()
-        if (wf && wf.steps) setWorkflowSteps(wf.steps as any[])
+        if (wf && wf.steps) setWorkflowSteps((wf.steps as any[]).map(s => s.label || s))
 
         // Fetch processes
         const { data: procs } = await supabase.from("processes").select("id, name").eq("department_id", deptId)

@@ -68,7 +68,7 @@ export default function ObjectiveDetailsPage() {
       if (data.department_id) {
         // Fetch workflow template steps
         const { data: wf } = await supabase.from("workflow_templates").select("steps").eq("department_id", data.department_id).maybeSingle()
-        if (wf && wf.steps) setWorkflowSteps(wf.steps as any[])
+        if (wf && wf.steps) setWorkflowSteps((wf.steps as any[]).map(s => s.label || s))
 
         // Fetch KPIs for linking
         const { data: kpis } = await supabase.from("kpi_definitions").select("kpi_name, processes(name)").eq("department_id", data.department_id)
