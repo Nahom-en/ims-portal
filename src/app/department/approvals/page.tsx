@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
+import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -416,8 +417,9 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
   }
 
   return (
-    <Table>
-      <TableHeader className="bg-muted dark:bg-zinc-900/50">
+    <ScrollableTableWrapper>
+      <Table className="min-w-full">
+      <TableHeader className="bg-muted dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
         <TableRow>
           <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('type')}>
             <div className="flex items-center gap-1">Type {sortKey === 'type' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
@@ -484,6 +486,7 @@ function TrayTable({ items, onApprove, onReject, isProcessing }: TrayTableProps)
         ))}
       </TableBody>
     </Table>
+    </ScrollableTableWrapper>
   )
 }
 
@@ -527,8 +530,9 @@ function OutboxTable({ items }: { items: any[] }) {
   }
 
   return (
-    <Table>
-      <TableHeader className="bg-muted dark:bg-zinc-900/50">
+    <ScrollableTableWrapper>
+      <Table className="min-w-full">
+      <TableHeader className="bg-muted dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
         <TableRow>
           <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('type')}>
             <div className="flex items-center gap-1">Type {sortKey === 'type' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
@@ -596,5 +600,6 @@ function OutboxTable({ items }: { items: any[] }) {
         ))}
       </TableBody>
     </Table>
+    </ScrollableTableWrapper>
   )
 }

@@ -257,9 +257,9 @@ export default function ObjectivesPage() {
         />
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-zinc-950 shadow-sm overflow-x-auto">
+      <ScrollableTableWrapper>
         <Table className="min-w-full">
-          <TableHeader className="bg-muted dark:bg-zinc-900/50">
+          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
               <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
                 <div className="flex items-center gap-1">Objective {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
@@ -310,7 +310,7 @@ export default function ObjectivesPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </ScrollableTableWrapper>
 
       <AlertDialog 
         open={!!objToDelete} 

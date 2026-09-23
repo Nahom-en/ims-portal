@@ -253,9 +253,9 @@ export default function RiskRegisterPage() {
       
 
       {/* ── Risk Data Table ── */}
-      <div className="rounded-md border bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
+      <ScrollableTableWrapper>
         <Table>
-          <TableHeader className="bg-muted dark:bg-zinc-900/50">
+          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
               <TableHead className="h-10 pl-6">Risk</TableHead>
               <TableHead className="h-10 w-[80px] text-center">L × S</TableHead>
@@ -367,7 +367,7 @@ export default function RiskRegisterPage() {
             })()}
           </TableBody>
         </Table>
-      </div>
+      </ScrollableTableWrapper>
 
       {/* ── Custom Delete Alert Dialog ── */}
       {riskToDelete && (

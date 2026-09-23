@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useEmployee } from "@/lib/employee-context"
 import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
+import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -199,9 +200,9 @@ export default function ProgressPage() {
       </div>
 
       {/* ── Detail Table ── */}
-      <div className="bg-white dark:bg-zinc-950 border dark:border-zinc-800 rounded-lg overflow-hidden">
+      <ScrollableTableWrapper>
         <Table>
-          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50">
+          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
               <TableHead className="h-10">Entity</TableHead>
               <TableHead className="h-10">Current Stage</TableHead>
@@ -246,7 +247,7 @@ export default function ProgressPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </ScrollableTableWrapper>
     </div>
   )
 }

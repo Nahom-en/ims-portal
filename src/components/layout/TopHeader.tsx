@@ -17,7 +17,9 @@ export function TopHeader() {
   const supabase = createClient()
   
   const [notifications, setNotifications] = useState<{id: string, title: string, message: string, is_read: boolean, created_at: string}[]>([])
+  const [uuidNames, setUuidNames] = useState<Record<string, string>>({})
 
+  // 1. Hook for Notifications
   useEffect(() => {
     async function fetchNotifs() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -26,6 +28,7 @@ export function TopHeader() {
       const { data: empRows } = await supabase.from('employees').select('id').eq('auth_user_id', user.id).single()
       if (empRows) {
         const empId = empRows.id
+        // @ts-expect-error - The notifications table is used for frontend simulation
         const { data: notifs } = await supabase
           .from('notifications')
           .select('*')
@@ -34,13 +37,7 @@ export function TopHeader() {
           .limit(10)
 
         if (notifs) {
-          setNotifications(notifs.map(n => ({
-            id: n.id,
-            title: n.title,
-            description: n.message,
-            time: new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-            read: n.is_read
-          })))
+          setNotifications(notifs)
         }
       }
     }
@@ -56,13 +53,13 @@ export function TopHeader() {
             'postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'notifications', filter: 'recipient_id=eq.' + emp.id },
             (payload) => {
-              const n = payload.new
+              const n = payload.new as any
               setNotifications(prev => [{
                 id: n.id,
                 title: n.title,
-                description: n.message,
-                time: new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                read: n.is_read
+                message: n.message,
+                created_at: n.created_at,
+                is_read: n.is_read
               }, ...prev].slice(0, 10))
             }
           )
@@ -75,12 +72,49 @@ export function TopHeader() {
     }
   }, [supabase])
 
+  // 2. Hook for UUID Names
+  useEffect(() => {
+    const fetchNames = async () => {
+      const segments = pathname.split('/').filter(Boolean)
+      const newNames: Record<string, string> = { ...uuidNames }
+      let updated = false
+
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i]
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) {
+          if (!newNames[segment]) {
+            const prev = segments[i - 1]
+            if (prev === 'objectives') {
+              const { data } = await supabase.from('objective_definitions').select('objective_description').eq('id', segment).single()
+              if (data) { newNames[segment] = (data as any).objective_description; updated = true; }
+            } else if (prev === 'kpis') {
+              const { data } = await supabase.from('kpi_definitions').select('kpi_name').eq('id', segment).single()
+              if (data) { newNames[segment] = (data as any).kpi_name; updated = true; }
+            } else if (prev === 'risks') {
+              const { data } = await supabase.from('risk_definitions').select('risk_statement').eq('id', segment).single()
+              if (data) { newNames[segment] = (data as any).risk_statement; updated = true; }
+            } else if (prev === 'users') {
+              const { data } = await supabase.from('employees').select('firstname, lastname').eq('id', segment).single()
+              if (data) { newNames[segment] = (data as any).firstname + ' ' + (data as any).lastname; updated = true; }
+            } else if (prev === 'departments') {
+              const { data } = await supabase.from('departments').select('department_name').eq('id', segment).single()
+              if (data) { newNames[segment] = (data as any).department_name; updated = true; }
+            }
+          }
+        }
+      }
+      if (updated) setUuidNames(newNames)
+    }
+    fetchNames()
+  }, [pathname, supabase])
+
   const markAllAsRead = async () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })))
+    setNotifications(notifications.map(n => ({ ...n, is_read: true })))
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data: empRows } = await supabase.from('employees').select('id').eq('auth_user_id', user.id).single()
     if (empRows) {
+      // @ts-expect-error
       await supabase.from('notifications').update({ is_read: true }).eq('recipient_id', empRows.id)
     }
   }
@@ -106,7 +140,7 @@ export function TopHeader() {
       // Skip the department base prefix in the UI
       if (segment === 'department' || segment === 'admin') return
 
-            // Format the label nicely
+      // Format the label nicely
       let label = segment.charAt(0).toUpperCase() + segment.slice(1)
       if (segment.toLowerCase() === 'kpis') label = 'KPIs'
       if (segment.toLowerCase() === 'risks') label = 'Risks'
@@ -120,46 +154,8 @@ export function TopHeader() {
       breadcrumbItems.push({ label, href: currentPath })
     })
   }
-
   
-  const [uuidNames, setUuidNames] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    const fetchNames = async () => {
-      const segments = pathname.split('/').filter(Boolean)
-      const newNames: Record<string, string> = { ...uuidNames }
-      let updated = false
-
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i]
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) {
-          if (!newNames[segment]) {
-            const prev = segments[i - 1]
-            if (prev === 'objectives') {
-              const { data } = await supabase.from('objective_definitions').select('objective_description').eq('id', segment).single()
-              if (data) { newNames[segment] = data.objective_description; updated = true; }
-            } else if (prev === 'kpis') {
-              const { data } = await supabase.from('kpi_definitions').select('name').eq('id', segment).single()
-              if (data) { newNames[segment] = data.name; updated = true; }
-            } else if (prev === 'risks') {
-              const { data } = await supabase.from('risk_definitions').select('name').eq('id', segment).single()
-              if (data) { newNames[segment] = data.name; updated = true; }
-            } else if (prev === 'users') {
-              const { data } = await supabase.from('employees').select('first_name, last_name').eq('id', segment).single()
-              if (data) { newNames[segment] = data.first_name + ' ' + data.last_name; updated = true; }
-            } else if (prev === 'departments') {
-              const { data } = await supabase.from('departments').select('department_name').eq('id', segment).single()
-              if (data) { newNames[segment] = data.department_name; updated = true; }
-            }
-          }
-        }
-      }
-      if (updated) setUuidNames(newNames)
-    }
-    fetchNames()
-  }, [pathname, supabase])
-  
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b bg-white px-6 shadow-sm dark:bg-zinc-950 dark:border-zinc-800">
@@ -222,7 +218,7 @@ export function TopHeader() {
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  {notifications.filter(n => !n.read).map((notif) => (
+                  {notifications.filter(n => !n.is_read).map((notif) => (
                     <DropdownMenuItem 
                       key={notif.id} 
                       className="flex items-start gap-3 p-4 border-b last:border-0 border-slate-100 dark:border-zinc-800/50 cursor-pointer rounded-none focus:bg-muted dark:focus:bg-zinc-900/50"
@@ -233,9 +229,9 @@ export function TopHeader() {
                       <div className="flex flex-col gap-1 w-full">
                         <div className="flex items-center justify-between w-full">
                           <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{notif.title}</span>
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{notif.time}</span>
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{new Date(notif.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-snug">{notif.description}</p>
+                        <p className="text-xs text-muted-foreground leading-snug">{notif.message}</p>
                       </div>
                     </DropdownMenuItem>
                   ))}

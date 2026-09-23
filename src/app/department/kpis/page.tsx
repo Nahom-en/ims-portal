@@ -250,9 +250,9 @@ export default function KPITrackingPage() {
       </div>
 
       {/* ── KPI Data Table ── */}
-      <div className="rounded-md border bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
+      <ScrollableTableWrapper>
         <Table>
-          <TableHeader className="bg-muted dark:bg-zinc-900/50">
+          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
               <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('name')}>
                 <div className="flex items-center gap-1">Metric {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
@@ -376,7 +376,7 @@ export default function KPITrackingPage() {
             })()}
           </TableBody>
         </Table>
-      </div>
+      </ScrollableTableWrapper>
 
       {/* ── Custom Delete Alert Dialog ── */}
       {kpiToDelete && (
