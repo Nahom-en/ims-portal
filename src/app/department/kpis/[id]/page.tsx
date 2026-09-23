@@ -7,12 +7,11 @@ import { toast } from "sonner"
 import { ArrowLeft, FileCsv, Pulse, Target, ClockCounterClockwise, Lock, XCircle, Clock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
+import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import { WorkflowStepper } from "@/components/shared/WorkflowStepper"
-import { mockWorkflowTemplates } from "@/lib/mockData"
 import { Badge } from "@/components/ui/badge"
 import KpiForm, { KpiFormData, KpiStatus } from "@/components/forms/KpiForm"
 import { createClient } from "@/lib/supabase/client"
-import { mockProcesses } from "@/lib/mockData"
 
 function StatusBadge({ status }: { status: KpiStatus }) {
   switch (status) {
@@ -35,6 +34,7 @@ export default function KpiDetailsPage() {
   const [kpi, setKpi] = useState<KpiFormData | null>(null)
   const [approvalLogs, setApprovalLogs] = useState<any[]>([])
   const [cycleStatus, setCycleStatus] = useState<string | null>(null)
+  const [workflowSteps, setWorkflowSteps] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -52,7 +52,12 @@ export default function KpiDetailsPage() {
       let currentStepIndex = 0
 
       const deptId = (data.processes as any)?.department_id
+      
       if (deptId) {
+        // Fetch workflow template steps
+        const { data: wf } = await supabase.from("workflow_templates").select("steps").eq("department_id", deptId).maybeSingle()
+        if (wf && wf.steps) setWorkflowSteps(wf.steps as any[])
+
         const { data: cycle } = await supabase
           .from("report_cycles")
           .select("id, workflow_status, current_step_index")
@@ -111,10 +116,7 @@ export default function KpiDetailsPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
-        <div className="h-8 w-8 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm">Loading KPI...</p>
-      </div>
+      <DetailSkeleton />
     )
   }
 
@@ -196,7 +198,7 @@ export default function KpiDetailsPage() {
 
       {/* ── Workflow Stepper ── */}
       <WorkflowStepper 
-        steps={mockWorkflowTemplates[0].steps}
+        steps={workflowSteps}
         currentStepIndex={kpi.currentStepIndex ?? 0}
         status={kpi.workflowStatus ?? "Draft"}
         canApprove={kpi.workflowStatus === "Pending Approval"}

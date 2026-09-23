@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning } from "@phosphor-icons/react"
+import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning, WarningCircle, Clock } from "@phosphor-icons/react"
 
 import {
   Table,
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select"
 
 import { RiskFormData, RiskStatus } from "@/components/forms/RiskForm"
-import { mockRisks } from "@/lib/mockData"
 
 // ── Score Helpers ──
 

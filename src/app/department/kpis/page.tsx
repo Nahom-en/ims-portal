@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select"
 
 import { KpiFormData } from "@/components/forms/KpiForm"
-import { mockKpis } from "@/lib/mockData"
 
 import { useEmployee } from "@/lib/employee-context"
 

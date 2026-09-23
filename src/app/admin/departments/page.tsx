@@ -30,7 +30,7 @@ import DepartmentForm, { DepartmentFormData } from "@/components/forms/Departmen
 export default function DepartmentsPage() {
   const [data, setData] = useState<DepartmentFormData[]>([])
   const [loading, setLoading] = useState(true)
-  const [mockUsers, setMockUsers] = useState<{id: string, name: string}[]>([])
+  const [availableUsers, setAvailableUsers] = useState<{id: string, name: string}[]>([])
   const supabase = createClient()
 
   const [companyRolesList, setCompanyRolesList] = useState<{id: string, title: string}[]>([])
@@ -59,7 +59,7 @@ export default function DepartmentsPage() {
       const { data: emps } = await supabase.from('employees').select('id, firstname, lastname')
 
       if (emps) {
-        setMockUsers(emps.map((e: any) => ({ id: e.id, name: `${e.firstname} ${e.lastname}` })))
+        setAvailableUsers(emps.map((e: any) => ({ id: e.id, name: `${e.firstname} ${e.lastname}` })))
       }
 
       if (depts) {
@@ -403,7 +403,7 @@ export default function DepartmentsPage() {
                     </TableCell>
                     <TableCell>
                       {row.headOfDepartment ? (
-                        <span className="text-sm">{mockUsers.find(u => u.id === row.headOfDepartment)?.name || "Unknown"}</span>
+                        <span className="text-sm">{availableUsers.find(u => u.id === row.headOfDepartment)?.name || "Unknown"}</span>
                       ) : (
                         <span className="text-sm text-muted-foreground italic">Unassigned</span>
                       )}
@@ -490,7 +490,7 @@ export default function DepartmentsPage() {
           key={deptToEdit?.id ?? "edit-closed"}
           initialData={deptToEdit}
           isEditMode={true}
-          availableUsers={mockUsers}
+          availableUsers={availableUsers}
           companyRoles={companyRolesList}
           onCancel={() => setDeptToEdit(null)}
           onSubmit={handleUpdate}
@@ -506,7 +506,7 @@ export default function DepartmentsPage() {
         <DepartmentForm
           key={isCreateSheetOpen ? "create-open" : "create-closed"}
           isEditMode={false}
-          availableUsers={mockUsers}
+          availableUsers={availableUsers}
           companyRoles={companyRolesList}
           onCancel={() => setIsCreateSheetOpen(false)}
           onSubmit={handleCreate}

@@ -7,12 +7,11 @@ import { toast } from "sonner"
 import { ArrowLeft, Target, Pulse, Link as LinkIcon, ClockCounterClockwise, Lock, XCircle, Clock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
+import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import { WorkflowStepper } from "@/components/shared/WorkflowStepper"
-import { mockWorkflowTemplates } from "@/lib/mockData"
 import { Badge } from "@/components/ui/badge"
 import ObjectiveForm, { ObjectiveFormData, ObjectiveStatus } from "@/components/forms/ObjectiveForm"
 import { createClient } from "@/lib/supabase/client"
-import { mockProcesses, mockAvailableKpis } from "@/lib/mockData"
 import { useEmployee } from "@/lib/employee-context"
 
 // ── Status Badge Renderer ──
@@ -40,6 +39,8 @@ export default function ObjectiveDetailsPage() {
   const [objective, setObjective] = useState<ObjectiveFormData | null>(null)
   const [approvalLogs, setApprovalLogs] = useState<any[]>([])
   const [cycleStatus, setCycleStatus] = useState<string | null>(null)
+  const [workflowSteps, setWorkflowSteps] = useState<any[]>([])
+  const [availableKpis, setAvailableKpis] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [departmentId, setDepartmentId] = useState<string>("")
@@ -62,7 +63,21 @@ export default function ObjectiveDetailsPage() {
       let currentWorkflowStatus: "Draft" | "Pending Approval" | "Published" | "Rejected" = "Draft"
       let currentStepIndex = 0
 
+      
       if (data.department_id) {
+        // Fetch workflow template steps
+        const { data: wf } = await supabase.from("workflow_templates").select("steps").eq("department_id", data.department_id).maybeSingle()
+        if (wf && wf.steps) setWorkflowSteps(wf.steps as any[])
+
+        // Fetch KPIs for linking
+        const { data: kpis } = await supabase.from("kpi_definitions").select("kpi_name, processes(name)").eq("department_id", data.department_id)
+        if (kpis) {
+          setAvailableKpis(kpis.map((k: any) => ({
+            name: k.kpi_name,
+            processName: k.processes?.name || "Unknown Process"
+          })))
+        }
+
         const { data: cycle } = await supabase
           .from("report_cycles")
           .select("id, workflow_status, current_step_index")
@@ -114,14 +129,11 @@ export default function ObjectiveDetailsPage() {
       setLoading(false)
     }
     fetchObjective()
-  }, [id])
+  }, [id, supabase])
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
-        <div className="h-8 w-8 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm">Loading objective...</p>
-      </div>
+      <DetailSkeleton />
     )
   }
 
@@ -200,7 +212,7 @@ export default function ObjectiveDetailsPage() {
       </div>
 
       <WorkflowStepper 
-        steps={mockWorkflowTemplates[0].steps}
+        steps={workflowSteps}
         currentStepIndex={objective.currentStepIndex ?? 0}
         status={objective.workflowStatus ?? "Draft"}
         canApprove={objective.workflowStatus === "Pending Approval"}
@@ -266,7 +278,7 @@ export default function ObjectiveDetailsPage() {
             mode={isLocked ? "view-all" : "edit-plan"}
             readOnly={isLocked}
             processes={mockProcesses}
-            availableKpis={mockAvailableKpis}
+            availableKpis={availableKpis}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/objectives")}
           />
@@ -279,7 +291,7 @@ export default function ObjectiveDetailsPage() {
             mode={isLocked ? "view-all" : "review-progress"}
             readOnly={isLocked}
             processes={mockProcesses}
-            availableKpis={mockAvailableKpis}
+            availableKpis={availableKpis}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/objectives")}
           />

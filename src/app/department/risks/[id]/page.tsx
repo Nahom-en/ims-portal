@@ -7,10 +7,10 @@ import { toast } from "sonner"
 import { ArrowLeft, ShieldWarning, Pulse, Target, ClockCounterClockwise, Lock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
+import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import { Badge } from "@/components/ui/badge"
 import RiskForm, { RiskFormData, RiskStatus } from "@/components/forms/RiskForm"
 import { createClient } from "@/lib/supabase/client"
-import { mockProcesses, mockAvailableObjectives } from "@/lib/mockData"
 
 function getScoreColor(score: number) {
   if (score >= 15) return { bg: "bg-destructive/20 dark:bg-rose-900/40", text: "text-rose-800 dark:text-rose-400", label: "Critical" }
@@ -38,6 +38,7 @@ export default function RiskDetailsPage() {
   const [activeTab, setActiveTab] = useState<"profile" | "mitigation" | "history">("profile")
   const [risk, setRisk] = useState<RiskFormData | null>(null)
   const [cycleStatus, setCycleStatus] = useState<string | null>(null)
+  const [availableObjectives, setAvailableObjectives] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -52,7 +53,17 @@ export default function RiskDetailsPage() {
       if (error || !data) { setLoading(false); return }
 
       const deptId = (data.risk_procedures as any)?.department_id
+      
       if (deptId) {
+        // Fetch Objectives for linking
+        const { data: objs } = await supabase.from("objective_definitions").select("objective_description, processes(name)").eq("department_id", deptId)
+        if (objs) {
+          setAvailableObjectives(objs.map((o: any) => ({
+            name: o.objective_description,
+            processName: o.processes?.name || "Unknown Process"
+          })))
+        }
+
         const { data: cycle } = await supabase
           .from("report_cycles")
           .select("id, workflow_status")
@@ -89,10 +100,7 @@ export default function RiskDetailsPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
-        <div className="h-8 w-8 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm">Loading risk...</p>
-      </div>
+      <DetailSkeleton />
     )
   }
 
@@ -226,7 +234,7 @@ export default function RiskDetailsPage() {
             mode={isLocked ? "view-all" : "edit-plan"}
             readOnly={isLocked}
             processes={mockProcesses}
-            availableObjectives={mockAvailableObjectives}
+            availableObjectives={availableObjectives}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/risks")}
           />
@@ -239,7 +247,7 @@ export default function RiskDetailsPage() {
             mode={isLocked ? "view-all" : "review-progress"}
             readOnly={isLocked}
             processes={mockProcesses}
-            availableObjectives={mockAvailableObjectives}
+            availableObjectives={availableObjectives}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/risks")}
           />
