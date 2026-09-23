@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Info } from "@phosphor-icons/react"
 import { createClient } from "@/lib/supabase/client"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const chartConfig = {
   objectives: { label: "Objectives", color: "hsl(var(--primary))" },
@@ -145,7 +146,7 @@ export function SystemActivityChart({ departments }: { departments: DeptOption[]
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">Loading chart...</div>
+          <Skeleton className="h-[280px] w-full" />
         ) : data.length === 0 ? (
           <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">
             No tracking data available yet. Submit report cycles to see activity.

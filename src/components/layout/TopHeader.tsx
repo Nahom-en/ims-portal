@@ -21,53 +21,64 @@ export function TopHeader() {
 
   // 1. Hook for Notifications
   useEffect(() => {
-    async function fetchNotifs() {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
+
+    async function setup() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || cancelled) return
 
       const { data: empRows } = await supabase.from('employees').select('id').eq('auth_user_id', user.id).single()
-      if (empRows) {
-        const empId = empRows.id
-        // @ts-expect-error - The notifications table is used for frontend simulation
-        const { data: notifs } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('recipient_id', empId)
-          .order('created_at', { ascending: false })
-          .limit(10)
+      if (!empRows || cancelled) return
 
-        if (notifs) {
-          setNotifications(notifs)
-        }
+      const empId = empRows.id
+
+      // Fetch initial notifications
+      // @ts-expect-error - notifications table may not be in generated types
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_id', empId)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (notifs && !cancelled) {
+        setNotifications(notifs)
       }
-    }
-    fetchNotifs()
 
-    let channel: any
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('employees').select('id').eq('auth_user_id', user.id).single().then(({ data: emp }) => {
-        if (!emp) return
-        channel = supabase.channel('notifs-' + emp.id)
-          .on(
-            'postgres_changes',
-            { event: 'INSERT', schema: 'public', table: 'notifications', filter: 'recipient_id=eq.' + emp.id },
-            (payload) => {
-              const n = payload.new as any
-              setNotifications(prev => [{
-                id: n.id,
-                title: n.title,
-                message: n.message,
-                created_at: n.created_at,
-                is_read: n.is_read
-              }, ...prev].slice(0, 10))
-            }
-          )
-          .subscribe()
-      })
-    })
+      if (cancelled) return
+
+      // Remove any existing channel with this name before creating a new one
+      // (handles React StrictMode double-mounting)
+      const channelName = 'notifs-' + empId
+      const existing = supabase.getChannels().find(ch => ch.topic === 'realtime:' + channelName)
+      if (existing) {
+        await supabase.removeChannel(existing)
+      }
+
+      // Create channel, register .on() BEFORE .subscribe()
+      channel = supabase.channel(channelName)
+      channel.on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: 'recipient_id=eq.' + empId },
+        (payload: { new: Record<string, unknown> }) => {
+          const n = payload.new
+          setNotifications(prev => [{
+            id: n.id as string,
+            title: n.title as string,
+            message: n.message as string,
+            created_at: n.created_at as string,
+            is_read: n.is_read as boolean,
+          }, ...prev].slice(0, 10))
+        }
+      )
+      channel.subscribe()
+    }
+
+    setup()
 
     return () => {
+      cancelled = true
       if (channel) supabase.removeChannel(channel)
     }
   }, [supabase])
@@ -76,34 +87,32 @@ export function TopHeader() {
   useEffect(() => {
     const fetchNames = async () => {
       const segments = pathname.split('/').filter(Boolean)
-      const newNames: Record<string, string> = { ...uuidNames }
-      let updated = false
+      const resolved: Record<string, string> = {}
+      let hasNew = false
 
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i]
         if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) {
-          if (!newNames[segment]) {
-            const prev = segments[i - 1]
-            if (prev === 'objectives') {
-              const { data } = await supabase.from('objective_definitions').select('objective_description').eq('id', segment).single()
-              if (data) { newNames[segment] = (data as any).objective_description; updated = true; }
-            } else if (prev === 'kpis') {
-              const { data } = await supabase.from('kpi_definitions').select('kpi_name').eq('id', segment).single()
-              if (data) { newNames[segment] = (data as any).kpi_name; updated = true; }
-            } else if (prev === 'risks') {
-              const { data } = await supabase.from('risk_definitions').select('risk_statement').eq('id', segment).single()
-              if (data) { newNames[segment] = (data as any).risk_statement; updated = true; }
-            } else if (prev === 'users') {
-              const { data } = await supabase.from('employees').select('firstname, lastname').eq('id', segment).single()
-              if (data) { newNames[segment] = (data as any).firstname + ' ' + (data as any).lastname; updated = true; }
-            } else if (prev === 'departments') {
-              const { data } = await supabase.from('departments').select('department_name').eq('id', segment).single()
-              if (data) { newNames[segment] = (data as any).department_name; updated = true; }
-            }
+          const prev = segments[i - 1]
+          if (prev === 'objectives') {
+            const { data } = await supabase.from('objective_definitions').select('objective_description').eq('id', segment).single()
+            if (data) { resolved[segment] = (data as Record<string, string>).objective_description; hasNew = true; }
+          } else if (prev === 'kpis') {
+            const { data } = await supabase.from('kpi_definitions').select('kpi_name').eq('id', segment).single()
+            if (data) { resolved[segment] = (data as Record<string, string>).kpi_name; hasNew = true; }
+          } else if (prev === 'risks') {
+            const { data } = await supabase.from('risk_definitions').select('risk_statement').eq('id', segment).single()
+            if (data) { resolved[segment] = (data as Record<string, string>).risk_statement; hasNew = true; }
+          } else if (prev === 'users') {
+            const { data } = await supabase.from('employees').select('firstname, lastname').eq('id', segment).single()
+            if (data) { resolved[segment] = (data as Record<string, string>).firstname + ' ' + (data as Record<string, string>).lastname; hasNew = true; }
+          } else if (prev === 'departments') {
+            const { data } = await supabase.from('departments').select('department_name').eq('id', segment).single()
+            if (data) { resolved[segment] = (data as Record<string, string>).department_name; hasNew = true; }
           }
         }
       }
-      if (updated) setUuidNames(newNames)
+      if (hasNew) setUuidNames(prev => ({ ...prev, ...resolved }))
     }
     fetchNames()
   }, [pathname, supabase])
@@ -190,8 +199,8 @@ export function TopHeader() {
             {/* Unread indicator dot */}
             {unreadCount > 0 && (
               <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive border-2 border-white dark:border-zinc-950"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500 border-2 border-white dark:border-zinc-950"></span>
               </span>
             )}
           </DropdownMenuTrigger>

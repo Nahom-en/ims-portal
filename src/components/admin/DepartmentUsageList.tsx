@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Info, MagnifyingGlass, Target, ChartBar, ShieldWarning } from "@phosphor-icons/react"
 import { createClient } from "@/lib/supabase/client"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type DeptOption = { id: string; name: string }
 type DeptData = {
@@ -194,7 +195,17 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
       
       <CardContent className="flex-1 overflow-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">Loading usage data...</div>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0 border-border/50">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+                <Skeleton className="h-8 w-24 rounded-full" />
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">No departments match your search.</p>
         ) : (

@@ -1,7 +1,8 @@
 "use client"
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Clock } from "@phosphor-icons/react"
+import { Clock, CheckCircle } from "@phosphor-icons/react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 function formatDistanceToNow(date: Date, options?: { addSuffix?: boolean }) {
   const now = new Date();
@@ -90,10 +91,20 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">Loading...</div>
+          <div className="space-y-5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-4 border-b border-border/50 pb-4 last:border-0 last:pb-0">
+                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : actions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-sm text-muted-foreground gap-2">
-            <span className="text-2xl">🎉</span>
+            <CheckCircle weight="duotone" className="h-10 w-10 text-emerald-500 mb-1" />
             <p>You're all caught up!</p>
           </div>
         ) : (

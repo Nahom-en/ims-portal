@@ -7,8 +7,7 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "
 import { createClient } from "@/lib/supabase/client"
 
 const objectiveConfig = {
-  achieved: { label: "Achieved", color: "hsl(var(--primary))" },
-  target: { label: "Target", color: "hsl(var(--muted-foreground))" },
+  completion: { label: "Avg Completion %", color: "hsl(var(--primary))" },
 } satisfies ChartConfig
 
 const kpiConfig = {
@@ -41,10 +40,20 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
         .eq('reporting_period', activePeriod)
         .single()
         
+      let trackingData: any[] = []
       let measurements: any[] = []
       
-      // 3. If a cycle exists, get all KPI measurements for this cycle
       if (cycle) {
+        const objIds = objs.map(o => o.id)
+        
+        // Fetch objective tracking to get Status
+        const { data: tr } = await supabase.from('objective_tracking')
+          .select('objective_id, status_vs_target')
+          .in('objective_id', objIds)
+          .eq('report_cycle_id', cycle.id)
+          
+        if (tr) trackingData = tr
+
         // Collect all linked KPI IDs to fetch their measurements efficiently
         const allLinkedKpis = objs.flatMap(o => {
           const meta = o.custom_metadata as any
@@ -62,8 +71,11 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
         }
       }
 
-      // 4. Map the objectives to their Achieved vs Target linked KPI counts
-      const result = objs.map(obj => {
+      // 3. Map objectives to Status and Completion %
+      const mappedObjs = objs.map(obj => {
+        const track = trackingData.find(t => t.objective_id === obj.id)
+        const status = track?.status_vs_target || "No Data"
+        
         const meta = obj.custom_metadata as any
         const linkedKpis = (meta?.linkedKpis || []) as string[]
         const target = linkedKpis.length
@@ -73,15 +85,21 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
            achieved = measurements.filter(m => linkedKpis.includes(m.kpi_id) && m.status === 'Achieved').length
         }
         
-        const shortName = obj.objective_description.length > 15 
-          ? obj.objective_description.substring(0, 15) + '...' 
-          : obj.objective_description
-          
+        const completionPct = target > 0 ? (achieved / target) * 100 : 0
+        
+        return { status, completionPct }
+      }).filter(o => o.status !== "No Data") // Ignore items with no tracking status
+
+      // 4. Group by Status and calculate average
+      const groups = ["Achieved", "On Track", "At Risk", "Off Track"]
+      const result = groups.map(group => {
+        const groupObjs = mappedObjs.filter(o => o.status === group)
+        if (groupObjs.length === 0) return { status: group, completion: 0 }
+        
+        const sum = groupObjs.reduce((acc, curr) => acc + curr.completionPct, 0)
         return {
-           name: shortName,
-           full_name: obj.objective_description,
-           achieved,
-           target
+          status: group,
+          completion: Math.round(sum / groupObjs.length)
         }
       })
       
@@ -94,17 +112,16 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
     <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>Objective Completion</CardTitle>
-        <CardDescription>{activePeriod} - Linked KPIs achieved vs target per objective</CardDescription>
+        <CardDescription>{activePeriod} - Average KPI completion % by status</CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
         <ChartContainer config={objectiveConfig} className="h-[300px] w-full">
           <BarChart accessibilityLayer data={data} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
-            <YAxis tickLine={false} axisLine={false} tickMargin={10} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
-            <Bar dataKey="achieved" fill="var(--color-achieved)" radius={4} name="KPIs Achieved" />
-            <Bar dataKey="target" fill="var(--color-target)" opacity={0.3} radius={4} name="Total KPIs" />
+            <XAxis dataKey="status" tickLine={false} tickMargin={10} axisLine={false} />
+            <YAxis tickLine={false} axisLine={false} tickMargin={10} domain={[0, 100]} />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <Bar dataKey="completion" fill="var(--color-completion)" radius={4} name="Avg Completion %" />
           </BarChart>
         </ChartContainer>
       </CardContent>
