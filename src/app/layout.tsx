@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { ClientLayoutWrapper } from "./ClientLayoutWrapper"
+import NextTopLoader from 'nextjs-toploader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentEmployee } from '@/lib/auth'
 
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${plusJakartaSans.variable} ${outfit.variable} h-full antialiased font-sans`}>
       <body className="min-h-full flex flex-col font-sans">
+        <NextTopLoader color="hsl(var(--primary))" showSpinner={false} />
         <ClientLayoutWrapper employee={employee}>{children}</ClientLayoutWrapper>
         <Toaster position="top-center" closeButton />
       </body>

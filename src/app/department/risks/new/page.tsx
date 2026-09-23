@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowLeft, CircleNotch } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
+import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import RiskForm, { RiskFormData, AvailableObjective } from "@/components/forms/RiskForm"
 import { createClient } from "@/lib/supabase/client"
 
@@ -86,16 +87,7 @@ export default function CreateRiskPage() {
     router.push("/department/risks")
   }
 
-  if (loadingLookups) {
-    return (
-      <div className="flex-1 p-4 md:p-6 w-full max-w-3xl mx-auto flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <CircleNotch className="h-8 w-8 animate-spin" />
-          <p className="text-sm">Loading form data...</p>
-        </div>
-      </div>
-    )
-  }
+  if (loadingLookups) return <DetailSkeleton />
 
   return (
     <div className="flex-1 p-4 md:p-6 w-full max-w-3xl mx-auto space-y-6">
