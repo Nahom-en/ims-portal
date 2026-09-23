@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import type { Employee } from "@/lib/employee-context"
 
 import {
   Sidebar,
@@ -33,7 +34,7 @@ const primaryNav = [
   { title: "Objectives",    url: "/department/objectives", icon: TargetIcon },
   { title: "KPIs",  url: "/department/kpis", icon: ChartBarIcon },
   { title: "Risks", url: "/department/risks", icon: ShieldWarningIcon },
-  { title: "Progress",      url: "/department/progress", icon: ActivityIcon },
+  { title: "Requests",      url: "/department/requests", icon: ActivityIcon },
 ]
 
 const adminNav = [
