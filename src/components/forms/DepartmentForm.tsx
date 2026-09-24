@@ -182,20 +182,43 @@ export default function DepartmentForm({
         />
       </div>
 
-      {/* Head of Department */}
-      <div className="space-y-2">
-        <Label>Head of Department</Label>
-        <SearchableDropdown
-          value={formData.headOfDepartment || null}
-          onChange={(val) => setFormData({ ...formData, headOfDepartment: val === "unassigned" ? "" : val })}
-          options={[
-            { id: "unassigned", label: "Unassigned" },
-            ...availableUsers.map(u => ({ id: u.id, label: u.name }))
-          ]}
-          placeholder="Assign a department head"
-          searchPlaceholder="Search users..."
-          emptyMessage="No user found"
-        />
+      {/* Head of Department & Status */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Head of Department</Label>
+          <SearchableDropdown
+            value={formData.headOfDepartment || null}
+            onChange={(val) => setFormData({ ...formData, headOfDepartment: val === "unassigned" ? "" : val })}
+            options={[
+              { id: "unassigned", label: "Unassigned" },
+              ...availableUsers.map(u => ({ id: u.id, label: u.name }))
+            ]}
+            placeholder="Assign a department head"
+            searchPlaceholder="Search users..."
+            emptyMessage="No user found"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <div className="flex bg-muted/50 p-1 rounded-md border border-input">
+            <Button
+              type="button"
+              variant={formData.status === "Active" ? "default" : "ghost"}
+              className={`flex-1 h-8 text-xs ${formData.status === "Active" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-muted-foreground"}`}
+              onClick={() => setFormData({ ...formData, status: "Active" })}
+            >
+              Active
+            </Button>
+            <Button
+              type="button"
+              variant={formData.status === "Inactive" ? "default" : "ghost"}
+              className={`flex-1 h-8 text-xs ${formData.status === "Inactive" ? "bg-slate-600 hover:bg-slate-700 text-white" : "text-muted-foreground"}`}
+              onClick={() => setFormData({ ...formData, status: "Inactive" })}
+            >
+              Inactive
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* ── Workflow JSON Array Builder ── */}
@@ -293,7 +316,7 @@ export default function DepartmentForm({
           Cancel
         </Button>
         <Button onClick={() => handleSubmit(formData)} className="bg-primary hover:bg-primary/90 text-white">
-          "Finished"
+          {isEditMode ? "Save Changes" : "Create Department"}
         </Button>
       </div>
     </div>

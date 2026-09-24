@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Plus, Buildings, Trash, CaretLeft, CaretRight, MagnifyingGlass,
-  Info, CaretUp, CaretDown } from "@phosphor-icons/react"
+  Info, CaretUp, CaretDown, Funnel } from "@phosphor-icons/react"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 
@@ -36,6 +37,8 @@ export default function DepartmentsPage() {
   const [companyRolesList, setCompanyRolesList] = useState<{id: string, title: string}[]>([])
 
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [deptFilter, setDeptFilter] = useState("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
@@ -81,8 +84,7 @@ export default function DepartmentsPage() {
             id: d.id,
             name: d.department_name,
             code: d.department_name.substring(0, 3).toUpperCase(),
-            description: "Managed via Supabase",
-            headOfDepartment: d.manager_id || "",
+                        headOfDepartment: d.manager_id || "",
             status: "Active",
             workflowSteps: stepsArr
           }
@@ -339,28 +341,59 @@ export default function DepartmentsPage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 max-w-sm relative">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="flex items-center gap-2 w-full max-w-sm relative">
           <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
           <Input 
             placeholder="Search departments..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 w-full"
           />
         </div>
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Funnel className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">Filter</span>
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Departments</SelectItem>
+              {data.map(d => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
         <ScrollableTableWrapper>
           <Table className="min-w-full">
             <TableHeader className="bg-muted dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
               <TableRow>
-                <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('name')}>
+                <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('headOfDepartment')}>
+                  <div className="flex items-center gap-1">Head of Department {sortKey === 'headOfDepartment' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
+                </TableHead>
+                <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
                   <div className="flex items-center gap-1">Department {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
                 </TableHead>
                 <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('code')}>
-                  <div className="flex items-center gap-1">Code {sortKey === 'code' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
-                </TableHead>
-                <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('headOfDepartment')}>
-                  <div className="flex items-center gap-1">Head of Department {sortKey === 'headOfDepartment' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
+                  <div className="flex items-center gap-1">Department Code {sortKey === 'code' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
                 </TableHead>
                 <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('status')}>
                   <div className="flex items-center gap-1">Status {sortKey === 'status' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
@@ -387,11 +420,7 @@ export default function DepartmentsPage() {
                     <TableCell className="font-medium pl-6">
                       <div>
                         {row.name}
-                        {row.description && (
-                          <p className="text-xs text-muted-foreground font-normal truncate max-w-[300px]">
-                            {row.description}
-                          </p>
-                        )}
+                        
                       </div>
                     </TableCell>
                     <TableCell>
