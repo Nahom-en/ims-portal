@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { ObjectiveCheckinForm } from "@/components/forms/ObjectiveCheckinForm"
 import { ArrowLeft, Target, Pulse, Link as LinkIcon, ClockCounterClockwise, Lock, XCircle, Clock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
@@ -308,14 +309,13 @@ export default function ObjectiveDetailsPage() {
         )}
 
         {activeTab === "progress" && (
-          <ObjectiveForm
-            key={`progress-${objective.id}`}
-            initialData={objective}
-            mode={isLocked ? "view-all" : "review-progress"}
-            readOnly={isLocked && !isEditingPlanRequest}
-            processes={processes}
-            availableKpis={availableKpis}
-            onSubmit={onFormSubmit}
+          <ObjectiveCheckinForm
+            objectiveId={objective.id}
+            objectiveName={objective.name}
+            onSubmitSuccess={() => {
+              toast.success("Check-in submitted!");
+              router.push("/department/objectives");
+            }}
             onCancel={() => router.push("/department/objectives")}
           />
         )}

@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { KpiMeasurementForm } from "@/components/forms/KpiMeasurementForm"
 import { ArrowLeft, FileCsv, Pulse, Target, ClockCounterClockwise, Lock, XCircle, Clock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
@@ -266,13 +267,14 @@ export default function KpiDetailsPage() {
         )}
 
         {activeTab === "measurement" && (
-          <KpiForm
-            key={`meas-${kpi.id}`}
-            initialData={kpi}
-            mode={isLocked ? "view-all" : "review-progress"}
-            readOnly={isLocked}
-            processes={processes}
-            onSubmit={handleUpdate}
+          <KpiMeasurementForm
+            kpiId={kpi.id}
+            kpiName={kpi.name}
+            targetValue={kpi.target || "N/A"}
+            onSubmitSuccess={() => {
+              toast.success("Measurement saved!");
+              router.push("/department/kpis");
+            }}
             onCancel={() => router.push("/department/kpis")}
           />
         )}

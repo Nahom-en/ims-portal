@@ -178,18 +178,6 @@ export default function RiskRegisterPage() {
     })
   }
 
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
-
   const handleDelete = () => {
     if (riskToDelete) {
       setData(data.filter(r => r.id !== riskToDelete.id))

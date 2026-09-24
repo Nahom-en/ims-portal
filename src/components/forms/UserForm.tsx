@@ -228,7 +228,6 @@ export default function UserForm({
             </SelectContent>
           </Select>
         </div>
-      </div>
 
       
 

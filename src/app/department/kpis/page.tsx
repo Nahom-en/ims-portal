@@ -22,13 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 import { KpiFormData } from "@/components/forms/KpiForm"
 
@@ -150,16 +143,6 @@ export default function KPITrackingPage() {
     if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
     return 0
   })
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      if (sortDir === 'asc') setSortDir('desc')
-      else { setSortKey(null); setSortDir('asc') }
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
