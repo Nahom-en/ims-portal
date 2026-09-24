@@ -202,7 +202,7 @@ export default function RiskRegisterPage() {
           </Select>
             <Button
               className="bg-primary hover:bg-primary/90 text-white gap-2 h-9"
-              onClick={() => setIsCreateSheetOpen(true)}
+              onClick={() => router.push("/department/risks/new")}
             >
               <Plus className="h-4 w-4" />
               Log Risk
