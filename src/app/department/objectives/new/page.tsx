@@ -91,7 +91,45 @@ export default function CreateObjectivePage() {
 
     setSaving(true)
 
+
     const { start, end } = quarterToDateRange(data.targetDate ?? "Q1 2026")
+
+    // --- Duplicate Prevention Logic ---
+    // 1. Check for existing active objectives for the same department + process + period
+    const { data: existing } = await supabase
+      .from('objective_definitions')
+      .select('id')
+      .eq('department_id', departmentId)
+      .eq('start_date', start)
+      .eq('end_date', end)
+      .eq('custom_metadata->>processName', data.processName)
+      .limit(1)
+
+    if (existing && existing.length > 0) {
+      toast.error(`An active objective for "${data.processName}" in ${data.targetDate} already exists.`)
+      setSaving(false)
+      return
+    }
+
+    // 2. Check for pending approval requests for the same combo
+    const { data: pending } = await supabase
+      .from('approval_requests')
+      .select('id')
+      .eq('department_id', departmentId)
+      .eq('entity_type', 'objective')
+      .eq('status', 'PENDING_APPROVAL')
+      .eq('payload->>start_date', start)
+      .eq('payload->>end_date', end)
+      .eq('payload->custom_metadata->>processName', data.processName)
+      .limit(1)
+
+    if (pending && pending.length > 0) {
+      toast.error(`A pending objective request for "${data.processName}" in ${data.targetDate} is already awaiting approval.`)
+      setSaving(false)
+      return
+    }
+    // --- End Duplicate Prevention ---
+
     
     const payload = {
       department_id: departmentId,
