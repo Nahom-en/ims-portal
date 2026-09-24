@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
@@ -98,6 +99,35 @@ export default function ObjectiveForm({
     kpi => kpi.processName === formData.processName
   )
   const isDeviationRequired = formData.status === "At Risk" || formData.status === "Off Track"
+
+
+  const handleSubmit = () => {
+    // Only validate Phase 1 fields if we are creating or editing the plan
+    if (mode === "create" || mode === "edit-plan") {
+      if (!formData.processName) {
+        toast.error("Please select a Process.")
+        return
+      }
+      if (!formData.linkedKpis || formData.linkedKpis.length === 0) {
+        toast.error("An Objective must have at least one linked KPI.")
+        return
+      }
+      if (!formData.name) {
+        toast.error("Please enter an Objective Name.")
+        return
+      }
+    }
+    
+    // Validate Phase 2 fields if reviewing
+    if (mode === "review-progress") {
+      if (isDeviationRequired && !formData.reasonForDeviation) {
+        toast.error("Please provide a reason for deviation since the objective is At Risk or Off Track.")
+        return
+      }
+    }
+    
+    onSubmit(formData)
+  }
 
   const isEditMode = mode !== "create"
   const showPhase1 = mode === "create" || mode === "edit-plan" || mode === "view-all" || readOnly
@@ -466,7 +496,7 @@ export default function ObjectiveForm({
         ) : (
           <>
             <Button variant="outline" onClick={onCancel}>Cancel</Button>
-            <Button onClick={() => onSubmit(formData)} className="bg-primary hover:bg-primary/90 text-white">
+            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90 text-white">
               {mode === "create" ? "Create Objective" : mode === "edit-plan" ? "Save Objective Plan" : "Log Progress Review"}
             </Button>
           </>
