@@ -10,7 +10,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning, WarningCircle, Clock, MagnifyingGlass, Funnel } from "@phosphor-icons/react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning, WarningCircle, Clock, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
 
 import {
   Table,
@@ -247,7 +248,14 @@ export default function RiskRegisterPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Risks</CardTitle>
-              <ShieldWarning className="h-4 w-4 text-primary opacity-70" />
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Total number of active risks identified.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{data.length}</div>

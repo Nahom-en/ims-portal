@@ -6,10 +6,11 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass, Warning, CheckCircle } from "@phosphor-icons/react"
+import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass, Warning, CheckCircle, Info } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Select,
   SelectContent,
@@ -214,18 +215,37 @@ export default function ObjectivesPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Active Objectives</CardTitle>
-                <Target className="h-4 w-4 text-primary opacity-70" />
+                <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Total number of objectives set for the selected period.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{total}</div>
                 <p className="text-xs text-muted-foreground mt-1">For selected period</p>
+                <div className="mt-3">
+                  <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
+                    {total} Active
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
 
             <Card className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Health Score</CardTitle>
-                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500 opacity-70" />
+                <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Percentage of objectives that are currently on track or completed.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{healthPercent}% Healthy</div>
@@ -233,13 +253,25 @@ export default function ObjectivesPage() {
                   <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${healthPercent}%` }} />
                 </div>
                 <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-2">{healthy} of {total} objectives on track</p>
+                <div className="mt-3">
+                  <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
+                    {healthPercent}% Healthy
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
 
             <Card className={atRisk > 0 ? "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20" : ""}>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className={`text-sm font-medium ${atRisk > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>Attention Required</CardTitle>
-                {atRisk > 0 && <Warning className="h-4 w-4 text-destructive opacity-70" />}
+                <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Objectives that are at risk or overdue and require immediate attention.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold ${atRisk > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-500'}`}>
@@ -248,6 +280,11 @@ export default function ObjectivesPage() {
                 <p className={`text-xs mt-1 ${atRisk > 0 ? 'text-destructive/80' : 'text-muted-foreground'}`}>
                   {atRisk > 0 ? 'At risk or overdue' : 'No interventions needed'}
                 </p>
+                <div className="mt-3">
+                  <Badge variant="outline" className={`font-normal text-[10px] ${atRisk > 0 ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/40' : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                    {atRisk > 0 ? `${atRisk} Interventions` : '0 Interventions'}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           </div>

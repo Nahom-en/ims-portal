@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, FileCsv, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, ChartLineUp, CheckCircle, WarningCircle, MagnifyingGlass, Funnel } from "@phosphor-icons/react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Plus, FileCsv, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, ChartLineUp, CheckCircle, WarningCircle, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 
 import {
@@ -232,11 +233,23 @@ export default function KPITrackingPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Tracked Metrics</CardTitle>
-                  <ChartLineUp className="h-4 w-4 text-primary opacity-70" />
+                  <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[200px] text-xs">Total number of Key Performance Indicators tracked.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{total}</div>
                   <p className="text-xs text-muted-foreground mt-1">Across {uniqueProcesses} department process{uniqueProcesses !== 1 ? 'es' : ''}</p>
+                  <div className="mt-3">
+                    <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
+                      {total} Active KPIs
+                    </Badge>
+                  </div>
                 </CardContent>
               </Card>
 
