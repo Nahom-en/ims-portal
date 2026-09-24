@@ -8,8 +8,9 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning, WarningCircle, Clock } from "@phosphor-icons/react"
+import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning, WarningCircle, Clock, MagnifyingGlass, Funnel } from "@phosphor-icons/react"
 
 import {
   Table,
@@ -68,6 +69,10 @@ export default function RiskRegisterPage() {
   const [loading, setLoading] = useState(true)
   const [riskToDelete, setRiskToDelete] = useState<any | null>(null /* eslint-disable-line @typescript-eslint/no-explicit-any */)
   const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   
   const supabase = createClient()
 
@@ -123,6 +128,38 @@ export default function RiskRegisterPage() {
   }, [supabase, employee, departmentFilter])
 
   // A risk is "locked" once it has been marked Closed
+  const processedData = useMemo(() => {
+    let result = data;
+    result = result.filter(d => {
+      if (statusFilter !== "ALL" && d.status !== statusFilter) return false;
+      return d.title.toLowerCase().includes(search.toLowerCase()) || 
+             d.process.toLowerCase().includes(search.toLowerCase());
+    });
+    
+    result = [...result].sort((a, b) => {
+      if (!sortKey) return 0
+      let aVal = a[sortKey]
+      let bVal = b[sortKey]
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return result;
+  }, [data, search, statusFilter, sortKey, sortDir])
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      if (sortDir === 'asc') setSortDir('desc')
+      else { setSortKey(null); setSortDir('asc') }
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
   const isLocked = (risk: RiskFormData) => risk.status === "Closed"
 
   // Collapsible process groups
@@ -249,6 +286,35 @@ export default function RiskRegisterPage() {
       
 
       {/* ── Risk Data Table ── */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mt-2">
+        <div className="flex items-center gap-2 w-full max-w-sm relative">
+          <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
+          <Input 
+            placeholder="Search risks..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 w-full"
+          />
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Funnel className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">Filter</span>
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="Open">Open</SelectItem>
+              <SelectItem value="Mitigating">Mitigating</SelectItem>
+              <SelectItem value="Closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <ScrollableTableWrapper>
         <Table>
           <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
@@ -264,12 +330,12 @@ export default function RiskRegisterPage() {
           <TableBody>
             {loading ? (
               <TableSkeleton columns={6} rows={3} />
-            ) : data.length === 0 ? (
+            ) : processedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-48 text-center text-muted-foreground">No risks found.</TableCell>
               </TableRow>
             ) : (() => {
-              const groups = data.reduce<Record<string, RiskFormData[]>>((acc, risk) => {
+              const groups = processedData.reduce<Record<string, RiskFormData[]>>((acc, risk) => {
                 const key = risk.processName || "General"
                 if (!acc[key]) acc[key] = []
                 acc[key].push(risk)

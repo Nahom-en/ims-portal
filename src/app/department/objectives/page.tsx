@@ -50,6 +50,8 @@ export default function ObjectivesPage() {
   const [departmentId, setDepartmentId] = useState<string>("")
   
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [processFilter, setProcessFilter] = useState("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
@@ -252,14 +254,46 @@ export default function ObjectivesPage() {
         )
       })()}
 
-      <div className="flex items-center gap-2 max-w-sm relative mt-2">
-        <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
-        <Input 
-          placeholder="Search objectives..." 
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mt-2">
+        <div className="flex items-center gap-2 w-full max-w-sm relative">
+          <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
+          <Input 
+            placeholder="Search objectives..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 w-full"
+          />
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Funnel className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">Filter</span>
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="On Track">On Track</SelectItem>
+              <SelectItem value="At Risk">At Risk</SelectItem>
+              <SelectItem value="Off Track">Off Track</SelectItem>
+              <SelectItem value="Achieved">Achieved</SelectItem>
+              <SelectItem value="No Data">No Data</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={processFilter} onValueChange={setProcessFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Process" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Processes</SelectItem>
+              {Array.from(new Set(data.map(d => d.process))).sort().map(p => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <ScrollableTableWrapper>
