@@ -183,8 +183,7 @@ export default function DepartmentsPage() {
       return
     }
 
-    if (!formData.id?.startsWith("dept-")) {
-      const deptId = formData.id
+    const deptId = formData.id
 
       const { error: deptErr } = await supabase
         .from('departments')
@@ -232,7 +231,6 @@ export default function DepartmentsPage() {
           return
         }
       }
-    }
 
     setData(data.map(d => d.id === formData.id ? formData : d))
     setDeptToEdit(null)
