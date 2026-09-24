@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Plus, Users, Trash, Shield, CaretLeft, CaretRight, MagnifyingGlass,
-  Info, CaretUp, CaretDown } from "@phosphor-icons/react"
+  Info, CaretUp, CaretDown, Funnel } from "@phosphor-icons/react"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 
 import {
@@ -56,6 +57,8 @@ export default function UsersPage() {
   const supabase = createClient()
 
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>("ALL")
+  const [deptFilter, setDeptFilter] = useState<string>("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
@@ -128,9 +131,25 @@ export default function UsersPage() {
   const pageSize = 8
 
   // Filter & Sort
-  const filteredData = data.filter(u =>
-    `${`${u.firstName} ${u.lastName}`} ${u.email}`.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredData = data.filter(u => {
+    if (roleFilter !== "ALL") {
+      if (roleFilter === "MISSING") {
+        if (u.systemRole) return false
+      } else {
+        if (u.systemRole !== roleFilter) return false
+      }
+    }
+    
+    if (deptFilter !== "ALL") {
+      if (deptFilter === "UNASSIGNED") {
+        if (u.departmentId) return false
+      } else {
+        if (u.departmentId !== deptFilter) return false
+      }
+    }
+    
+    return `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(search.toLowerCase())
+  })
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortKey) return 0
@@ -342,15 +361,50 @@ export default function UsersPage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 max-w-sm relative">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="flex items-center gap-2 w-full max-w-sm relative">
           <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
           <Input 
             placeholder="Search users..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 w-full"
           />
         </div>
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Funnel className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground font-medium">Filter</span>
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="System Role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Roles</SelectItem>
+              <SelectItem value="SUPER_ADMIN">System Admin</SelectItem>
+              <SelectItem value="DEPT_HEAD">Dept Head</SelectItem>
+              <SelectItem value="CONTRIBUTOR">Contributor</SelectItem>
+              <SelectItem value="VIEWER">Viewer</SelectItem>
+              <SelectItem value="MISSING">Missing Roles</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Departments</SelectItem>
+              {departmentsList.map(d => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+              <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
         <ScrollableTableWrapper>
           <Table className="min-w-full">

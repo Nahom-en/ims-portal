@@ -210,8 +210,10 @@ export default function UserForm({
           </Select>
         </div>
 
-        {/* Cross-Department Access */}
-        <div className="space-y-2">
+      </div>
+
+      {/* Cross-Department Access */}
+      <div className="space-y-2">
           <Label>Cross-Department Access</Label>
           <Select
             value={formData.visibilityScope === 'ALL' ? 'ALL' : 'OWN'}
