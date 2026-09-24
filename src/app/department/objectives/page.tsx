@@ -37,14 +37,10 @@ export default function ObjectivesPage() {
   const employee = useEmployee()
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(null)
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || null)
   
   // Set default once employee is loaded
-  useEffect(() => {
-    if (employee && departmentFilter === null) {
-      setDepartmentFilter(employee.department_id || 'ALL')
-    }
-  }, [employee, departmentFilter])
+
     const currentDate = new Date()
   const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
   const actualYear = currentDate.getFullYear().toString()
@@ -97,6 +93,7 @@ export default function ObjectivesPage() {
             name: o.objective_description,
             department_id: o.department_id,
             process: (o.custom_metadata as any)?.processName || 'N/A',
+            author_id: (o.custom_metadata as any)?.author_id,
             status: track ? track.status_vs_target : 'No Data',
             targetDate: o.end_date || 'N/A',
           }
@@ -134,6 +131,11 @@ export default function ObjectivesPage() {
 
   const handleDeleteRequest = async () => {
     if (!objToDelete) return
+    
+    if (objToDelete.author_id && objToDelete.author_id !== employee?.id && !justification.trim()) {
+      toast.error("Please provide a justification for deleting this objective.")
+      return
+    }
 
     const { error } = await supabase
       .from("approval_requests")
@@ -145,7 +147,8 @@ export default function ObjectivesPage() {
         status: "PENDING_APPROVAL",
         current_step_index: 1,
         custom_metadata: {
-          change_type: "DELETE"
+          change_type: "DELETE",
+          justification: justification.trim() || undefined
         }
       })
 
@@ -155,6 +158,7 @@ export default function ObjectivesPage() {
       toast.success("Deletion request submitted for approval.")
     }
     setObjToDelete(null)
+    setJustification("")
   }
 
   return (
@@ -318,9 +322,21 @@ export default function ObjectivesPage() {
         title="Submit for Deletion Approval?" 
         description={`You are requesting to delete the objective "${objToDelete?.name}". This requires approval.`}
         onConfirm={handleDeleteRequest} 
-        onCancel={() => setObjToDelete(null)}
+        onCancel={() => { setObjToDelete(null); setJustification(""); }}
         confirmLabel="Submit Request" 
-      />
+      >
+        {objToDelete && objToDelete.author_id !== employee?.id && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Justification Note <span className="text-destructive">*</span></label>
+            <textarea
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
+              placeholder="Why are you requesting to delete an objective you did not create?"
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+            />
+          </div>
+        )}
+      </AlertDialog>
     </div>
   )
 }

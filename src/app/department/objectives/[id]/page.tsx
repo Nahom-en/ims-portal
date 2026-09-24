@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { ArrowLeft, Target, Pulse, Link as LinkIcon, ClockCounterClockwise, Lock, XCircle, Clock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
+import { AlertDialog } from "@/components/ui/alert-dialog"
 import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import { WorkflowStepper } from "@/components/shared/WorkflowStepper"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +45,11 @@ export default function ObjectiveDetailsPage() {
   const [availableKpis, setAvailableKpis] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  
+  const [isEditingPlanRequest, setIsEditingPlanRequest] = useState(false)
+  const [updateDataPending, setUpdateDataPending] = useState<ObjectiveFormData | null>(null)
+  const [justification, setJustification] = useState("")
+  const [showJustificationModal, setShowJustificationModal] = useState(false)
   const [departmentId, setDepartmentId] = useState<string>("")
 
   useEffect(() => {
@@ -154,7 +160,9 @@ export default function ObjectiveDetailsPage() {
     )
   }
 
-  const isLocked = objective.status === "Achieved" || cycleStatus === "PENDING_APPROVAL" || cycleStatus === "APPROVED"
+  const isLocked = objective.is_active === true // Rule: Once approved, it is locked
+
+
 
   const handleUpdate = async (updatedData: ObjectiveFormData) => {
     setSaving(true)
@@ -225,7 +233,7 @@ export default function ObjectiveDetailsPage() {
       />
 
       <div className="border-b border-border dark:border-zinc-800">
-        <div className="flex gap-6 overflow-x-auto">
+        <div className="flex items-center justify-between overflow-x-auto w-full"><div className="flex gap-6">
           <button
             onClick={() => setActiveTab("plan")}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
@@ -270,6 +278,17 @@ export default function ObjectiveDetailsPage() {
             <ClockCounterClockwise className="h-4 w-4" />
             History Log
           </button>
+          </div>
+          {activeTab === "plan" && isLocked && !isEditingPlanRequest && (
+            <Button variant="outline" size="sm" onClick={() => setIsEditingPlanRequest(true)}>
+              Request Edit
+            </Button>
+          )}
+          {activeTab === "plan" && isEditingPlanRequest && (
+            <Button variant="ghost" size="sm" onClick={() => setIsEditingPlanRequest(false)}>
+              Cancel Edit
+            </Button>
+          )}
         </div>
       </div>
 
@@ -279,11 +298,11 @@ export default function ObjectiveDetailsPage() {
           <ObjectiveForm
             key={`plan-${objective.id}`}
             initialData={objective}
-            mode={isLocked ? "view-all" : "edit-plan"}
-            readOnly={isLocked}
+            mode={isLocked && !isEditingPlanRequest ? "view-all" : "edit-plan"}
+            readOnly={isLocked && !isEditingPlanRequest}
             processes={processes}
             availableKpis={availableKpis}
-            onSubmit={handleUpdate}
+            onSubmit={onFormSubmit}
             onCancel={() => router.push("/department/objectives")}
           />
         )}
@@ -293,10 +312,10 @@ export default function ObjectiveDetailsPage() {
             key={`progress-${objective.id}`}
             initialData={objective}
             mode={isLocked ? "view-all" : "review-progress"}
-            readOnly={isLocked}
+            readOnly={isLocked && !isEditingPlanRequest}
             processes={processes}
             availableKpis={availableKpis}
-            onSubmit={handleUpdate}
+            onSubmit={onFormSubmit}
             onCancel={() => router.push("/department/objectives")}
           />
         )}
@@ -394,6 +413,31 @@ export default function ObjectiveDetailsPage() {
         )}
 
       </div>
+      <AlertDialog 
+        open={showJustificationModal} 
+        title="Justification Required" 
+        description="You are requesting to edit an objective that you did not author. Please provide a brief justification."
+        onConfirm={() => {
+          if (!justification.trim()) {
+            toast.error("Justification note is required.")
+            return
+          }
+          if (updateDataPending) {
+            handleUpdate(updateDataPending, justification.trim())
+          }
+        }} 
+        onCancel={() => { setShowJustificationModal(false); setUpdateDataPending(null); setJustification(""); }}
+        confirmLabel="Submit Change Request" 
+      >
+        <div className="space-y-2">
+          <textarea
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px]"
+            placeholder="Why are you requesting this change?"
+            value={justification}
+            onChange={(e) => setJustification(e.target.value)}
+          />
+        </div>
+      </AlertDialog>
     </div>
   )
 }

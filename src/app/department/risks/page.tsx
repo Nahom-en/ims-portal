@@ -78,11 +78,7 @@ export default function RiskRegisterPage() {
   const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
   const [activeYear, setActiveYear] = useState(actualYear)
 
-  useEffect(() => {
-    if (employee && departmentFilter === null) {
-      setDepartmentFilter(employee.department_id || 'ALL')
-    }
-  }, [employee, departmentFilter])
+
 
   useEffect(() => {
     async function fetchData() {
