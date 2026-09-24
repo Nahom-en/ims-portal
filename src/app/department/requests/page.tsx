@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client";
 
@@ -160,7 +161,23 @@ export default function RequestsPage() {
                     className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-muted/50'}`}
                     onClick={() => setSelectedRequestId(row.id)}
                   >
-                    <TableCell className="font-medium">{entityName} Record</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col">
+                        <span>{entityName} Request</span>
+                        <span className="text-xs text-muted-foreground font-normal">
+                          {(() => {
+                            const meta = row.custom_metadata || {};
+                            if (meta.proposed_changes) {
+                              try {
+                                const changes = typeof meta.proposed_changes === 'string' ? JSON.parse(meta.proposed_changes) : meta.proposed_changes;
+                                return changes.title || changes.name || changes.objective_description || changes.risk_statement || meta.processName || "";
+                              } catch (e) { return ""; }
+                            }
+                            return meta.title || meta.name || meta.processName || meta.description || "";
+                          })()}
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
                         {changeType === 'UPDATE' ? 'Edit' : changeType === 'DELETE' ? 'Deletion' : 'Creation'}
