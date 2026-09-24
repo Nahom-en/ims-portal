@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { MultiSearchableDropdown } from "@/components/forms/MultiSearchableDropdown"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Stack, Plus, Trash, Target, CheckCircle, Warning, FileText, Link as LinkIcon, ShieldWarning } from "@phosphor-icons/react"
+import { Stack, Target, CheckCircle, Warning, FileText, Link as LinkIcon, ShieldWarning } from "@phosphor-icons/react"
 
 // ── Re-export types so the page can import from one place ──
 
@@ -31,7 +32,6 @@ export interface ObjectiveFormData {
   successCriteria?: string       // Phase 1: Measurable completion criteria / deliverables
   targetDate: string            // Phase 1: Quarter & Year (e.g., "Q3 2026")
   linkedKpis: string[]          // Phase 1: Associated KPIs
-  customFields?: { id: string; name: string; value: string }[] // Phase 1: Department subjective fields
 
   // Phase 2: Progress Review
   status: ObjectiveStatus       // Status (On Track, At Risk, Off Track, Achieved)
@@ -86,7 +86,6 @@ export default function ObjectiveForm({
       reasonForDeviation: "",
       followUpActions: "",
       linkedKpis: [],
-      customFields: [],
     }
   })
 
@@ -94,20 +93,10 @@ export default function ObjectiveForm({
     setFormData({ ...formData, status })
   }
 
-  const toggleKpi = (kpiName: string) => {
-    setFormData(prev => ({
-      ...prev,
-      linkedKpis: prev.linkedKpis.includes(kpiName)
-        ? prev.linkedKpis.filter(k => k !== kpiName)
-        : [...prev.linkedKpis, kpiName],
-    }))
-  }
-
   // Filter available KPIs to the selected process
   const filteredKpis = availableKpis.filter(
     kpi => kpi.processName === formData.processName
   )
-
   const isDeviationRequired = formData.status === "At Risk" || formData.status === "Off Track"
 
   const isEditMode = mode !== "create"
@@ -284,106 +273,31 @@ export default function ObjectiveForm({
               : "Select the KPIs that quantitatively measure this objective."
             }
           </p>
-          <div className="flex flex-wrap gap-2">
-            {filteredKpis.length > 0 ? filteredKpis.map((kpi) => {
-              const isSelected = formData.linkedKpis.includes(kpi.name)
-              return (
-                <Badge
-                  key={kpi.name}
-                  variant={isSelected ? "default" : "outline"}
-                  className={`px-3 py-1 transition-colors ${readOnly ? "cursor-default" : "cursor-pointer"} ${isSelected ? "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 shadow-none border-transparent" : "hover:bg-slate-100 dark:hover:bg-slate-800 text-muted-foreground bg-white dark:bg-zinc-950"}`}
-                  onClick={() => !readOnly && toggleKpi(kpi.name)}
-                >
-                  {kpi.name}
-                </Badge>
-              )
-            }) : (
-              <p className="text-sm text-muted-foreground">
-                {formData.processName ? "No KPIs found for this process." : "Select a process first."}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Dynamic Department Requirements */}
-        <div className="space-y-3 pt-3 border-t border-border/80 dark:border-zinc-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Department Custom Requirements</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Optional custom attributes, stakeholders, or metadata.
-              </p>
-            </div>
-            {!readOnly && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 bg-white dark:bg-zinc-950"
-                onClick={() => {
-                  const newField = { id: Math.random().toString(36).substring(7), name: "", value: "" }
-                  setFormData({ ...formData, customFields: [...(formData.customFields || []), newField] })
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Field
-              </Button>
-            )}
-          </div>
-
-          {(formData.customFields?.length || 0) > 0 ? (
-            <div className="space-y-3 mt-3">
-              {formData.customFields?.map((field, index) => (
-                <div key={field.id} className="flex items-start gap-2">
-                  <div className="grid grid-cols-2 gap-2 flex-1">
-                    <div>
-                      <Input
-                        placeholder="Field Name (e.g. Stakeholder)"
-                        value={field.name}
-                        readOnly={readOnly}
-                        onChange={(e) => {
-                          const newFields = [...(formData.customFields || [])]
-                          newFields[index].name = e.target.value
-                          setFormData({ ...formData, customFields: newFields })
-                        }}
-                        className={readOnly ? "bg-slate-100 dark:bg-zinc-900 border-dashed" : "bg-white dark:bg-zinc-950"}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        placeholder="Value"
-                        value={field.value}
-                        readOnly={readOnly}
-                        onChange={(e) => {
-                          const newFields = [...(formData.customFields || [])]
-                          newFields[index].value = e.target.value
-                          setFormData({ ...formData, customFields: newFields })
-                        }}
-                        className={readOnly ? "bg-slate-100 dark:bg-zinc-900 border-dashed" : "bg-white dark:bg-zinc-950"}
-                      />
-                    </div>
-                  </div>
-                  {!readOnly && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-rose-950 shrink-0"
-                      onClick={() => {
-                        const newFields = formData.customFields?.filter((_, i) => i !== index)
-                        setFormData({ ...formData, customFields: newFields })
-                      }}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  )}
+          {readOnly ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {formData.linkedKpis.length > 0 ? formData.linkedKpis.map(kpiName => (
+                <div key={kpiName} className="flex items-center gap-1.5 bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-slate-300 px-2.5 py-1 rounded-full text-xs font-medium border border-border">
+                  {kpiName}
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-muted-foreground italic">No linked KPIs.</p>
+              )}
             </div>
           ) : (
-            readOnly && (
-              <p className="text-sm text-muted-foreground italic">No custom requirements added.</p>
-            )
+            <>
+              {(!formData.processName || filteredKpis.length === 0) ? (
+                <p className="text-sm text-muted-foreground italic">
+                  {formData.processName ? "No KPIs found for this process." : "Select a process first."}
+                </p>
+              ) : (
+                <MultiSearchableDropdown
+                  values={formData.linkedKpis}
+                  onChange={(vals) => setFormData({ ...formData, linkedKpis: vals })}
+                  options={filteredKpis.map(kpi => ({ id: kpi.name, label: kpi.name }))}
+                  placeholder="Search and select KPIs..."
+                />
+              )}
+            </>
           )}
         </div>
       </div>

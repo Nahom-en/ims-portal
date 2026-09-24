@@ -126,7 +126,6 @@ export default function ObjectiveDetailsPage() {
         successCriteria: data.success_criteria ?? "",
         targetDate: "Q1 2026",
         linkedKpis: meta.linkedKpis ?? [],
-        customFields: meta.customFields ?? [],
         status: "On Track",
         workflowStatus: currentWorkflowStatus,
         currentStepIndex: currentStepIndex,

@@ -103,7 +103,6 @@ export default function CreateObjectivePage() {
         processName: data.processName,
         description: data.description,
         linkedKpis: data.linkedKpis,
-        customFields: data.customFields ?? [],
         change_type: 'CREATE'
       },
       is_active: false // Only becomes active when approved
