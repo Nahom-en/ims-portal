@@ -42,6 +42,7 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
         
       let trackingData: any[] = []
       let measurements: any[] = []
+      let nameToId: Record<string, string> = {}
       
       if (cycle) {
         const objIds = objs.map(o => o.id)
@@ -55,19 +56,31 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
         if (tr) trackingData = tr
 
         // Collect all linked KPI IDs to fetch their measurements efficiently
-        const allLinkedKpis = objs.flatMap(o => {
+        const allLinkedKpiNames = objs.flatMap(o => {
           const meta = o.custom_metadata as any
           return meta?.linkedKpis || []
         }).filter(Boolean)
         
-        if (allLinkedKpis.length > 0) {
-          const { data: mData } = await supabase
-            .from('kpi_measurements')
-            .select('kpi_id, status')
-            .eq('report_cycle_id', cycle.id)
-            .in('kpi_id', allLinkedKpis)
+        if (allLinkedKpiNames.length > 0) {
+          const { data: kpiDefs } = await supabase
+            .from('kpi_definitions')
+            .select('id, kpi_name')
+            .in('kpi_name', allLinkedKpiNames)
             
-          measurements = mData || []
+          if (kpiDefs) {
+            nameToId = Object.fromEntries(kpiDefs.map(k => [k.kpi_name, k.id]))
+            const kpiIds = kpiDefs.map(k => k.id)
+            
+            if (kpiIds.length > 0) {
+              const { data: mData } = await supabase
+                .from('kpi_measurements')
+                .select('kpi_id, status')
+                .eq('report_cycle_id', cycle.id)
+                .in('kpi_id', kpiIds)
+                
+              measurements = mData || []
+            }
+          }
         }
       }
 
@@ -78,11 +91,12 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
         
         const meta = obj.custom_metadata as any
         const linkedKpis = (meta?.linkedKpis || []) as string[]
-        const target = linkedKpis.length
+        const linkedKpiIds = linkedKpis.map(name => nameToId[name]).filter(Boolean)
+        const target = linkedKpiIds.length
         
         let achieved = 0
         if (target > 0) {
-           achieved = measurements.filter(m => linkedKpis.includes(m.kpi_id) && m.status === 'Achieved').length
+           achieved = measurements.filter(m => linkedKpiIds.includes(m.kpi_id) && m.status === 'Achieved').length
         }
         
         const completionPct = target > 0 ? (achieved / target) * 100 : 0

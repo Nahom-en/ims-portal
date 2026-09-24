@@ -274,12 +274,12 @@ export default function RiskForm({
               <p className="text-sm text-muted-foreground">{formData.linkedObjective || "—"}</p>
             ) : (
               <Select
-                key={objectives.length > 0 ? "loaded" : "loading"}
+                key={availableObjectives.length > 0 ? "loaded" : "loading"}
                 value={formData.linkedObjective}
                 onValueChange={(val) => setFormData({ ...formData, linkedObjective: val === "none" ? "" : (val || "") })}
               >
                 <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-                  <SelectValue placeholder="Select the threatened objective">{formData.linkedObjective ? objectives.find(o => o.id === formData.linkedObjective)?.title || formData.linkedObjective : undefined}</SelectValue>
+                  <SelectValue placeholder="Select the threatened objective">{formData.linkedObjective ? availableObjectives.find(o => o.name === formData.linkedObjective)?.name || formData.linkedObjective : undefined}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" className="text-muted-foreground italic">None</SelectItem>
