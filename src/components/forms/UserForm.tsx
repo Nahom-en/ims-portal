@@ -154,14 +154,14 @@ export default function UserForm({
 
       <div className="space-y-2">
         <Label htmlFor="user-password">
-          {isEditMode ? "Reset Password (Optional)" : "Temporary Password "}
+          {isEditMode ? "Reset Password (Optional)" : "Password"}
           {!isEditMode && <span className="text-destructive">*</span>}
         </Label>
         <div className="relative">
           <Input
             id="user-password"
             type={showPassword ? "text" : "password"}
-            placeholder={isEditMode ? "Leave blank to keep current" : "Enter temporary password"}
+            placeholder={isEditMode ? "Leave blank to keep current" : "Enter password"}
             value={formData.password || ""}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             className="pr-10"

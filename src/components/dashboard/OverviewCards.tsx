@@ -157,9 +157,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
       {/* ── 2. KPI Card ── */}
       <Card className="">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold text-muted-foreground">
-            KPI Performance
-          </CardTitle>
+          <CardTitle className="text-base font-semibold text-muted-foreground">KPIs</CardTitle>
           <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
             <ChartBar className="h-5 w-5" />
           </div>
@@ -184,9 +182,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
       {/* ── 3. Risk Card ── */}
       <Card className="">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold text-muted-foreground">
-            Risk Profile
-          </CardTitle>
+          <CardTitle className="text-base font-semibold text-muted-foreground">Risks</CardTitle>
           <div className="p-2 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400">
             <ShieldWarning className="h-5 w-5" />
           </div>

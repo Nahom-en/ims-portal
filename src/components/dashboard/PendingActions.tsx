@@ -58,8 +58,8 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
         .select('id, entity_type, created_at, employees!inner(department_id, first_name, last_name)')
         .eq('status', 'PENDING_APPROVAL')
         .eq('employees.department_id', emp.department_id)
-        .order('created_at', { ascending: true })
-        .limit(5)
+        .order('created_at', { ascending: false })
+        .limit(3)
         
       if (reqs && reqs.length > 0) {
         setActions(reqs.map((r: any) => {
@@ -86,7 +86,7 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pending Actions</CardTitle>
+        <CardTitle>Pending Approvals</CardTitle>
         <CardDescription>Tasks requiring attention in your department</CardDescription>
       </CardHeader>
       <CardContent>
