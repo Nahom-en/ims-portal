@@ -44,7 +44,7 @@ export async function updateSession(request: NextRequest) {
   if (isAuthRoute && user) {
     // redirect to department dashboard
     const url = request.nextUrl.clone()
-    url.pathname = '/department'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 

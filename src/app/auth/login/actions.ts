@@ -24,12 +24,21 @@ export async function login(formData: FormData) {
     return { error: 'Invalid input' }
   }
 
-  const { error } = await supabase.auth.signInWithPassword(data)
+  const { error, data: authData } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
     return { error: error.message }
   }
 
   revalidatePath('/', 'layout')
-  redirect('/department')
+
+  let destination = '/department'
+  if (authData?.user) {
+    const { data: emp } = await supabase.from('employees').select('role').eq('auth_user_id', authData.user.id).single()
+    if (emp?.role === 'SYSTEM_ADMIN') {
+      destination = '/admin'
+    }
+  }
+
+  redirect(destination)
 }
