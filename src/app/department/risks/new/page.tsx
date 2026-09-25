@@ -73,8 +73,8 @@ export default function CreateRiskPage() {
     setSaving(false)
 
     if (error) {
-      console.error("Supabase INSERT error:", error)
-      toast.error(`Failed to save: ${error.message}`)
+      console.error("Supabase INSERT error:", JSON.stringify(error, null, 2))
+      toast.error(`Failed to save: ${error.message || error.details || 'RLS Policy Violation (Check if Process is selected)'}`)
       return
     }
 

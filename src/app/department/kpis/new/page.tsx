@@ -74,8 +74,8 @@ export default function NewKpiPage() {
     }).select('id').single()
 
     if (error || !kpi) {
-      console.error("Supabase INSERT error:", error)
-      toast.error(`Failed to save KPI: ${error?.message}`)
+      console.error("Supabase INSERT error:", JSON.stringify(error, null, 2))
+      toast.error(`Failed to save KPI: ${error?.message || error?.details || 'RLS Policy Violation (Check if Process is selected)'}`)
       setSaving(false)
       return
     }
