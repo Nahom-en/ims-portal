@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button"
 import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import RiskForm, { RiskFormData, AvailableObjective } from "@/components/forms/RiskForm"
 import { createClient } from "@/lib/supabase/client"
+import { useEmployee } from "@/lib/employee-context"
 
 export default function CreateRiskPage() {
   const router = useRouter()
   const supabase = createClient()
+  const employee = useEmployee()
 
   const [processes, setProcesses] = useState<{ id: string; name: string }[]>([])
   const [availableObjectives, setAvailableObjectives] = useState<AvailableObjective[]>([])
@@ -56,6 +58,7 @@ export default function CreateRiskPage() {
 
     const { error } = await supabase.from("risk_definitions").insert({
       procedure_id: proc?.id || null,
+      owner_id: employee?.id || null,
       risk_statement: data.title,
       affected_assets: data.description,
       threat: data.description,              // both map to description until form is expanded
@@ -73,8 +76,13 @@ export default function CreateRiskPage() {
     setSaving(false)
 
     if (error) {
-      console.error("Supabase INSERT error:", JSON.stringify(error, null, 2))
-      toast.error(`Failed to save: ${error.message || error.details || 'RLS Policy Violation (Check if Process is selected)'}`)
+      console.error("Supabase INSERT error:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      })
+      toast.error(`Failed to save: ${error.message || error.details || 'Database insert failed'}`)
       return
     }
 

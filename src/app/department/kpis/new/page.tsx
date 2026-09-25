@@ -64,6 +64,7 @@ export default function NewKpiPage() {
       process_id: processId,
       kpi_name: data.name,
       target_value: data.target,
+      unit: (data as any).unit ?? "",
       source: data.dataSource ?? "Manual",
       analysis_frequency: "MONTHLY",
       custom_metadata: {
@@ -74,8 +75,13 @@ export default function NewKpiPage() {
     }).select('id').single()
 
     if (error || !kpi) {
-      console.error("Supabase INSERT error:", JSON.stringify(error, null, 2))
-      toast.error(`Failed to save KPI: ${error?.message || error?.details || 'RLS Policy Violation (Check if Process is selected)'}`)
+      console.error("Supabase INSERT error:", {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+      })
+      toast.error(`Failed to save KPI: ${error?.message || error?.details || 'Database insert failed'}`)
       setSaving(false)
       return
     }
