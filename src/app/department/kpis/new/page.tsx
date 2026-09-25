@@ -64,7 +64,6 @@ export default function NewKpiPage() {
       process_id: processId,
       kpi_name: data.name,
       target_value: data.target,
-      unit: "",
       source: data.dataSource ?? "Manual",
       analysis_frequency: "MONTHLY",
       custom_metadata: {
