@@ -86,7 +86,7 @@ export default function RiskForm({
       period: "Q1 2026",
       workflowStatus: "Draft",
       currentStepIndex: 0,
-      processName: processes[0] ?? "",
+      processName: "",
       title: "",
       description: "",
       likelihood: 1,
@@ -149,7 +149,7 @@ export default function RiskForm({
           {/* Process */}
           <div className="space-y-2">
             <Label>
-              Process <span className="text-destructive">*</span>
+              Process
             </Label>
             {isEditMode ? (
               <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">

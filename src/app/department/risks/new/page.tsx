@@ -51,16 +51,11 @@ export default function CreateRiskPage() {
   const handleCreate = async (data: RiskFormData) => {
     setSaving(true)
 
-    // Resolve the procedure_id from the selected process name
-    const proc = processes.find((p) => p.name === data.processName)
-    if (!proc) {
-      toast.error("Could not find the selected procedure. Please try again.")
-      setSaving(false)
-      return
-    }
+    // Resolve the procedure_id from the selected process name (optional)
+    const proc = data.processName ? processes.find((p) => p.name === data.processName) : null
 
     const { error } = await supabase.from("risk_definitions").insert({
-      procedure_id: proc.id,
+      procedure_id: proc?.id || null,
       risk_statement: data.title,
       affected_assets: data.description,
       threat: data.description,              // both map to description until form is expanded

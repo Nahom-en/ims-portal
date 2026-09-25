@@ -238,7 +238,7 @@ export default function RiskDetailsPage() {
             initialData={risk}
             mode={isLocked ? "view-all" : "edit-plan"}
             readOnly={isLocked}
-            processes={processes}
+            processes={processes.map((p: {id: string, name: string}) => p.name)}
             availableObjectives={availableObjectives}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/risks")}
@@ -251,7 +251,7 @@ export default function RiskDetailsPage() {
             initialData={risk}
             mode={isLocked ? "view-all" : "review-progress"}
             readOnly={isLocked}
-            processes={processes}
+            processes={processes.map((p: {id: string, name: string}) => p.name)}
             availableObjectives={availableObjectives}
             onSubmit={handleUpdate}
             onCancel={() => router.push("/department/risks")}
