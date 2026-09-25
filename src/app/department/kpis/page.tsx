@@ -99,7 +99,7 @@ export default function KPITrackingPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   
   const toggleAll = (checked: boolean) => {
-    if (checked) setSelectedIds(processedData.map(d => d.id))
+    if (checked) setSelectedIds(sortedData.map(d => d.id))
     else setSelectedIds([])
   }
   const toggleOne = (id: string, checked: boolean) => {
@@ -330,7 +330,7 @@ export default function KPITrackingPage() {
 
       <BulkExportToolbar 
         selectedIds={selectedIds} 
-        data={processedData} 
+        data={sortedData} 
         columns={exportColumns} 
         filename="kpis_export"
         onClearSelection={() => setSelectedIds([])} 
@@ -341,7 +341,7 @@ export default function KPITrackingPage() {
             <TableRow>
               <TableHead className="w-12 h-10 px-4">
                 <Checkbox 
-                  checked={processedData.length > 0 && selectedIds.length === processedData.length} 
+                  checked={sortedData.length > 0 && selectedIds.length === sortedData.length} 
                   onCheckedChange={toggleAll}
                   aria-label="Select all"
                 />
