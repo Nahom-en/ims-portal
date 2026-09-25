@@ -27,7 +27,7 @@ export interface ObjectiveFormData {
   period: string
   workflowStatus?: WorkflowStatus
   currentStepIndex?: number
-  processName: string
+  processNames: string[]
   name: string
   description: string
   successCriteria?: string       // Phase 1: Measurable completion criteria / deliverables
@@ -76,7 +76,7 @@ export default function ObjectiveForm({
       period: "Q1 2026",
       workflowStatus: "Draft",
       currentStepIndex: 0,
-      processName: processes[0] ?? "",
+      processNames: processes.length > 0 ? [processes[0]] : [],
       name: "",
       description: "",
       successCriteria: "",
@@ -96,7 +96,7 @@ export default function ObjectiveForm({
 
   // Filter available KPIs to the selected process
   const filteredKpis = availableKpis.filter(
-    kpi => kpi.processName === formData.processName
+    kpi => formData.processNames?.includes(kpi.processName)
   )
   const isDeviationRequired = formData.status === "At Risk" || formData.status === "Off Track"
 
@@ -104,8 +104,8 @@ export default function ObjectiveForm({
   const handleSubmit = () => {
     // Only validate Phase 1 fields if we are creating or editing the plan
     if (mode === "create" || mode === "edit-plan") {
-      if (!formData.processName) {
-        toast.error("Please select a Process.")
+      if (!formData.processNames || formData.processNames.length === 0) {
+        toast.error("Please select at least one Process.")
         return
       }
       if (!formData.linkedKpis || formData.linkedKpis.length === 0) {
@@ -168,30 +168,22 @@ export default function ObjectiveForm({
           {isEditMode ? (
             <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
               <Stack className="h-4 w-4 text-muted-foreground" />
-              {formData.processName || "—"}
+              {formData.processNames?.join(", ") || "—"}
             </div>
           ) : processes.length > 0 ? (
-            <Select
-              value={formData.processName}
-              onValueChange={(val) => setFormData({ ...formData, processName: val ?? "", linkedKpis: [] })}
-            >
-              <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-                <div className="flex items-center gap-2">
-                  <Stack className="h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Select a process" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {processes.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSearchableDropdown
+              values={formData.processNames || []}
+              onChange={(vals) => setFormData({ ...formData, processNames: vals, linkedKpis: [] })}
+              options={processes.map(p => ({ id: p, label: p }))}
+              placeholder="Select processes..."
+              searchPlaceholder="Search processes..."
+              emptyMessage="No process found."
+            />
           ) : (
             <Input
               placeholder="e.g., Service Delivery"
-              value={formData.processName}
-              onChange={(e) => setFormData({ ...formData, processName: e.target.value })}
+              value={formData.processNames?.[0] || ""}
+              onChange={(e) => setFormData({ ...formData, processNames: [e.target.value] })}
               className="bg-white dark:bg-zinc-950"
             />
           )}
@@ -315,9 +307,9 @@ export default function ObjectiveForm({
             </div>
           ) : (
             <>
-              {(!formData.processName || filteredKpis.length === 0) ? (
+              {(!formData.processNames || formData.processNames.length === 0 || filteredKpis.length === 0) ? (
                 <p className="text-sm text-muted-foreground italic">
-                  {formData.processName ? "No KPIs found for this process." : "Select a process first."}
+                  {(formData.processNames && formData.processNames.length > 0) ? "No KPIs found for the selected processes." : "Select a process first."}
                 </p>
               ) : (
                 <MultiSearchableDropdown

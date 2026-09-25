@@ -170,7 +170,7 @@ export default function RequestsPage() {
                             if (meta.proposed_changes) {
                               try {
                                 const changes = typeof meta.proposed_changes === 'string' ? JSON.parse(meta.proposed_changes) : meta.proposed_changes;
-                                return changes.title || changes.name || changes.objective_description || changes.risk_statement || meta.processName || "";
+                                return changes.title || changes.name || changes.objective_description || changes.risk_statement || meta.processNames?.join(", ") || "";
                               } catch (e) { return ""; }
                             }
                             return meta.title || meta.name || meta.processName || meta.description || "";

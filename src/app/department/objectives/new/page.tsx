@@ -102,7 +102,7 @@ export default function CreateObjectivePage() {
       .eq('department_id', departmentId)
       .eq('start_date', start)
       .eq('end_date', end)
-      .eq('custom_metadata->>processName', data.processName)
+      .eq('custom_metadata->>name', data.name)
       .limit(1)
 
     if (existing && existing.length > 0) {
@@ -120,7 +120,7 @@ export default function CreateObjectivePage() {
       .eq('status', 'PENDING_APPROVAL')
       .eq('payload->>start_date', start)
       .eq('payload->>end_date', end)
-      .eq('payload->custom_metadata->>processName', data.processName)
+      .eq('payload->custom_metadata->>name', data.name)
       .limit(1)
 
     if (pending && pending.length > 0) {
@@ -138,7 +138,7 @@ export default function CreateObjectivePage() {
       start_date: start,
       end_date: end,
       custom_metadata: {
-        processName: data.processName,
+        processNames: data.processNames,
         description: data.description,
         linkedKpis: data.linkedKpis,
         change_type: 'CREATE',

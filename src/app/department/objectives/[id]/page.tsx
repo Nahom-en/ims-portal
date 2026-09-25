@@ -127,7 +127,7 @@ export default function ObjectiveDetailsPage() {
       setObjective({
         id: data.id,
         period: "Q1 2026",
-        processName: meta.processName ?? "",
+        processNames: meta.processNames || [],
         name: data.objective_description,
         description: meta.description ?? "",
         successCriteria: data.success_criteria ?? "",
@@ -205,7 +205,7 @@ export default function ObjectiveDetailsPage() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <Badge variant="outline" className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground bg-muted dark:bg-zinc-900">
-                {objective.processName}
+                {objective.processNames?.join(", ")}
               </Badge>
               <StatusBadge status={objective.status} />
               {isLocked && (

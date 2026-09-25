@@ -98,7 +98,7 @@ export default function ObjectivesPage() {
             id: o.id,
             name: o.objective_description,
             department_id: o.department_id,
-            process: (o.custom_metadata as any)?.processName || 'N/A',
+            process: (o.custom_metadata as any)?.processNames?.join(", ") || 'N/A',
             author_id: (o.custom_metadata as any)?.author_id,
             status: track ? track.status_vs_target : 'No Data',
             targetDate: o.end_date || 'N/A',
