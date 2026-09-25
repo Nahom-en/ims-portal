@@ -86,7 +86,7 @@ export default function DepartmentDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">Department Dashboard</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
             
             {/* Dynamic Status Badge */}
             {isLive ? (

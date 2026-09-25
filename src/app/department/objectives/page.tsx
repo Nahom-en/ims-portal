@@ -214,7 +214,7 @@ export default function ObjectivesPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Active Objectives</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Objectives</CardTitle>
                 <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
@@ -237,7 +237,7 @@ export default function ObjectivesPage() {
 
             <Card className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Health Score</CardTitle>
+                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Completed</CardTitle>
                 <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
@@ -248,14 +248,14 @@ export default function ObjectivesPage() {
               </TooltipProvider>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{healthPercent}% Healthy</div>
+                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{healthPercent}% On Track</div>
                 <div className="mt-3 h-1.5 w-full bg-emerald-100 dark:bg-emerald-950/50 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${healthPercent}%` }} />
                 </div>
                 <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-2">{healthy} of {total} objectives on track</p>
                 <div className="mt-3">
                   <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
-                    {healthPercent}% Healthy
+                    {healthPercent}% On Track
                   </Badge>
                 </div>
               </CardContent>

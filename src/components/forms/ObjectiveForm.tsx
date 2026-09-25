@@ -113,7 +113,7 @@ export default function ObjectiveForm({
         return
       }
       if (!formData.name) {
-        toast.error("Please enter an Objective Name.")
+        toast.error("Please enter an Objective Title.")
         return
       }
     }
@@ -197,10 +197,10 @@ export default function ObjectiveForm({
           )}
         </div>
 
-        {/* Objective Name */}
+        {/* Objective Title */}
         <div className="space-y-2">
           <Label htmlFor="obj-name">
-            Objective Name / Goal <span className="text-destructive">*</span>
+            Objective Title <span className="text-destructive">*</span>
           </Label>
           {isEditMode ? (
             <div className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{formData.name}</div>
@@ -217,7 +217,7 @@ export default function ObjectiveForm({
 
         {/* Description */}
         <div className="space-y-2">
-          <Label htmlFor="obj-desc">Scope & Objective Description</Label>
+          <Label htmlFor="obj-desc">Description</Label>
           {readOnly ? (
             <p className="text-sm text-muted-foreground">{formData.description || "—"}</p>
           ) : (
