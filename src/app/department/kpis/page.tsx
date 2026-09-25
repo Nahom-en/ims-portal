@@ -36,6 +36,8 @@ export default function KPITrackingPage() {
   const [loading, setLoading] = useState(true)
   const [kpiToDelete, setKpiToDelete] = useState<any /* eslint-disable-line @typescript-eslint/no-explicit-any */ | null>(null)
   const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
   
   const supabase = createClient()
   useEffect(() => {

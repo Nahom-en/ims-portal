@@ -41,6 +41,7 @@ export default function RiskDetailsPage() {
   const [availableObjectives, setAvailableObjectives] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [processes, setProcesses] = useState<{id: string, name: string}[]>([])
 
   useEffect(() => {
     async function fetchRisk() {

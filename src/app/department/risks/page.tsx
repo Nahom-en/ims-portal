@@ -3,7 +3,7 @@ import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapp
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
