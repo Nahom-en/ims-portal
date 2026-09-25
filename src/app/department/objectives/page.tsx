@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/table"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
+import { Checkbox } from "@/components/ui/checkbox"
+import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
 import { useEmployee } from "@/lib/employee-context"
 import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
 import { AlertDialog } from "@/components/ui/alert-dialog"
@@ -55,6 +57,7 @@ export default function ObjectivesPage() {
   const [processFilter, setProcessFilter] = useState("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [objToDelete, setObjToDelete] = useState<any>(null)
 
@@ -122,6 +125,22 @@ export default function ObjectivesPage() {
     if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
     return 0
   })
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) setSelectedIds(filteredData.map(d => d.id))
+    else setSelectedIds([])
+  }
+  const toggleOne = (id: string, checked: boolean) => {
+    if (checked) setSelectedIds(prev => [...prev, id])
+    else setSelectedIds(prev => prev.filter(x => x !== id))
+  }
+
+  const exportColumns = [
+    { key: 'name', label: 'Objective Title' },
+    { key: 'process', label: 'Process' },
+    { key: 'targetDate', label: 'Target Date' },
+    { key: 'status', label: 'Status' }
+  ]
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -333,10 +352,24 @@ export default function ObjectivesPage() {
         </div>
       </div>
 
+      <BulkExportToolbar 
+        selectedIds={selectedIds} 
+        data={filteredData} 
+        columns={exportColumns} 
+        filename="objectives_export"
+        onClearSelection={() => setSelectedIds([])} 
+      />
       <ScrollableTableWrapper>
         <Table className="min-w-full">
           <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
+              <TableHead className="w-12 h-10 px-4">
+                <Checkbox 
+                  checked={filteredData.length > 0 && selectedIds.length === filteredData.length} 
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
                 <div className="flex items-center gap-1">Objective {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
               </TableHead>
@@ -363,6 +396,13 @@ export default function ObjectivesPage() {
                   className="cursor-pointer"
                   onClick={() => router.push(`/department/objectives/${row.id}`)}
                 >
+                  <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox 
+                      checked={selectedIds.includes(row.id as string)} 
+                      onCheckedChange={(checked) => toggleOne(row.id as string, checked as boolean)}
+                      aria-label="Select row"
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{row.name}</TableCell>
                   <TableCell>{row.process}</TableCell>
                   <TableCell>

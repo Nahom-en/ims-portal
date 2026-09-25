@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Plus, FileCsv, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, ChartLineUp, CheckCircle, WarningCircle, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
+import { Checkbox } from "@/components/ui/checkbox"
+import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
 
 import {
   Table,
@@ -93,7 +95,25 @@ export default function KPITrackingPage() {
 
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   
+  const toggleAll = (checked: boolean) => {
+    if (checked) setSelectedIds(processedData.map(d => d.id))
+    else setSelectedIds([])
+  }
+  const toggleOne = (id: string, checked: boolean) => {
+    if (checked) setSelectedIds(prev => [...prev, id])
+    else setSelectedIds(prev => prev.filter(x => x !== id))
+  }
+
+  const exportColumns = [
+    { key: 'name', label: 'KPI Name' },
+    { key: 'processName', label: 'Process' },
+    { key: 'target', label: 'Target' },
+    { key: 'actual', label: 'Actual' },
+    { key: 'status', label: 'Status' }
+  ]
+
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -307,11 +327,25 @@ export default function KPITrackingPage() {
         </div>
       </div>
 
+      <BulkExportToolbar 
+        selectedIds={selectedIds} 
+        data={processedData} 
+        columns={exportColumns} 
+        filename="kpis_export"
+        onClearSelection={() => setSelectedIds([])} 
+      />
       <ScrollableTableWrapper>
         <Table>
           <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
-              <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('name')}>
+              <TableHead className="w-12 h-10 px-4">
+                <Checkbox 
+                  checked={processedData.length > 0 && selectedIds.length === processedData.length} 
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
+              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
                 <div className="flex items-center gap-1">Metric {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
               </TableHead>
               <TableHead className="h-10">Responsibility</TableHead>
@@ -336,7 +370,7 @@ export default function KPITrackingPage() {
               <TableSkeleton columns={5} rows={3} />
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
                   No KPIs found.
                 </TableCell>
               </TableRow>
@@ -358,7 +392,7 @@ export default function KPITrackingPage() {
                     className="bg-muted/80 dark:bg-zinc-900/60 hover:bg-slate-100/80 dark:hover:bg-zinc-900/80 cursor-pointer select-none"
                     onClick={() => toggleProcess(processName)}
                   >
-                    <TableCell colSpan={8} className="py-2 px-4">
+                    <TableCell colSpan={9} className="py-2 px-4">
                       <div className="flex items-center gap-2">
                         {isCollapsed
                           ? <CaretRight className="h-3.5 w-3.5 text-muted-foreground" />
@@ -381,6 +415,13 @@ export default function KPITrackingPage() {
                       onClick={() => router.push(`/department/kpis/${row.id}`)}
                       className={`transition-colors cursor-pointer ${locked ? "bg-muted/60 dark:bg-zinc-900/30 hover:bg-slate-100/60 dark:hover:bg-zinc-900/50 opacity-80" : "hover:bg-muted dark:hover:bg-slate-900/50"}`}
                     >
+                      <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox 
+                          checked={selectedIds.includes(row.id as string)} 
+                          onCheckedChange={(checked) => toggleOne(row.id as string, checked as boolean)}
+                          aria-label="Select row"
+                        />
+                      </TableCell>
                       <TableCell className="font-medium max-w-[250px] pl-6">
                         <div className="flex items-center gap-2 truncate" title={row.name}>
                           {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}

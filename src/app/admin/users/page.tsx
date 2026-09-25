@@ -27,6 +27,8 @@ import {
 import SlideOutSheet from "@/components/shared/SlideOutSheet"
 import UserForm, { UserFormData, SystemRole } from "@/components/forms/UserForm"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
+import { Checkbox } from "@/components/ui/checkbox"
+import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
 
 // ── Role Badge Component ──
 
@@ -61,6 +63,7 @@ export default function UsersPage() {
   const [deptFilter, setDeptFilter] = useState<string>("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   useEffect(() => {
     async function fetchData() {
@@ -164,6 +167,23 @@ export default function UsersPage() {
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize))
   const paginatedData = sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) setSelectedIds(sortedData.map(d => d.id))
+    else setSelectedIds([])
+  }
+  const toggleOne = (id: string, checked: boolean) => {
+    if (checked) setSelectedIds(prev => [...prev, id])
+    else setSelectedIds(prev => prev.filter(x => x !== id))
+  }
+
+  const exportColumns = [
+    { key: 'firstname', label: 'First Name' },
+    { key: 'lastname', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'role', label: 'Role' },
+    { key: 'department_name', label: 'Department' }
+  ]
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -406,11 +426,25 @@ export default function UsersPage() {
         </div>
       </div>
 
-        <ScrollableTableWrapper>
+        <BulkExportToolbar 
+        selectedIds={selectedIds} 
+        data={sortedData} 
+        columns={exportColumns} 
+        filename="users_export"
+        onClearSelection={() => setSelectedIds([])} 
+      />
+      <ScrollableTableWrapper>
           <Table className="min-w-full">
             <TableHeader className="bg-muted dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
               <TableRow>
-                <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('firstName')}>
+                <TableHead className="w-12 h-10 px-4">
+                <Checkbox 
+                  checked={sortedData.length > 0 && selectedIds.length === sortedData.length} 
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
+              <TableHead className="h-10 pl-6 cursor-pointer" onClick={() => handleSort('firstName')}>
                   <div className="flex items-center gap-1">User {sortKey === 'firstName' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
                 </TableHead>
                 <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('departmentId')}>
@@ -439,6 +473,13 @@ export default function UsersPage() {
                     onClick={() => setUserToEdit(row)}
                     className={`cursor-pointer transition-colors hover:bg-muted dark:hover:bg-slate-900/50 ${row.status === "Suspended" ? "opacity-60" : ""}`}
                   >
+                    <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox 
+                        checked={selectedIds.includes(row.id as string)} 
+                        onCheckedChange={(checked) => toggleOne(row.id as string, checked as boolean)}
+                        aria-label="Select row"
+                      />
+                    </TableCell>
                     <TableCell className="font-medium pl-6">
                       <div>
                         {row.firstName} {row.lastName}

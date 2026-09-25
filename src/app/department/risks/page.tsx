@@ -1,6 +1,8 @@
 "use client";
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
+import { Checkbox } from "@/components/ui/checkbox"
+import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { useState, useEffect, useMemo } from "react"
@@ -74,6 +76,7 @@ export default function RiskRegisterPage() {
   const [statusFilter, setStatusFilter] = useState("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   
   const supabase = createClient()
 
@@ -155,6 +158,23 @@ export default function RiskRegisterPage() {
 
     return result;
   }, [data, search, statusFilter, sortKey, sortDir])
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) setSelectedIds(processedData.map(d => d.id))
+    else setSelectedIds([])
+  }
+  const toggleOne = (id: string, checked: boolean) => {
+    if (checked) setSelectedIds(prev => [...prev, id])
+    else setSelectedIds(prev => prev.filter(x => x !== id))
+  }
+
+  const exportColumns = [
+    { key: 'title', label: 'Risk Title' },
+    { key: 'processName', label: 'Process' },
+    { key: 'likelihood', label: 'Likelihood' },
+    { key: 'severity', label: 'Severity' },
+    { key: 'riskScore', label: 'Score' }
+  ]
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -317,10 +337,24 @@ export default function RiskRegisterPage() {
         </div>
       </div>
 
+      <BulkExportToolbar 
+        selectedIds={selectedIds} 
+        data={processedData} 
+        columns={exportColumns} 
+        filename="risks_export"
+        onClearSelection={() => setSelectedIds([])} 
+      />
       <ScrollableTableWrapper>
         <Table>
           <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
+              <TableHead className="w-12 h-10 px-4">
+                <Checkbox 
+                  checked={processedData.length > 0 && selectedIds.length === processedData.length} 
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead className="h-10 pl-6">Risk</TableHead>
               <TableHead className="h-10 w-[80px] text-center">L × S</TableHead>
               <TableHead className="h-10">Score</TableHead>
@@ -372,10 +406,17 @@ export default function RiskRegisterPage() {
                     const locked = isLocked(row)
                     return (
                       <TableRow
-                        key={row.id}
-                        onClick={() => router.push(`/department/risks/${row.id}`)}
-                        className={`transition-colors cursor-pointer ${locked ? "bg-muted/60 dark:bg-zinc-900/30 hover:bg-slate-100/60 dark:hover:bg-zinc-900/50 opacity-80" : "hover:bg-muted dark:hover:bg-slate-900/50"}`}
-                      >
+                      key={row.id}
+                      onClick={() => router.push(`/department/risks/${row.id}`)}
+                      className={`transition-colors cursor-pointer ${locked ? "bg-muted/60 dark:bg-zinc-900/30 hover:bg-slate-100/60 dark:hover:bg-zinc-900/50 opacity-80" : "hover:bg-muted dark:hover:bg-slate-900/50"}`}
+                    >
+                      <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox 
+                          checked={selectedIds.includes(row.id as string)} 
+                          onCheckedChange={(checked) => toggleOne(row.id as string, checked as boolean)}
+                          aria-label="Select row"
+                        />
+                      </TableCell>
                         <TableCell className="font-medium max-w-[280px] pl-6">
                           <div className="flex items-center gap-2 truncate" title={row.title}>
                             {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
