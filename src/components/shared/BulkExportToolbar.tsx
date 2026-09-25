@@ -117,12 +117,10 @@ export function BulkExportToolbar({
       <div className="h-6 w-px bg-border mx-1" />
       
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2 h-8 rounded-full">
+        <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="gap-2 h-8 rounded-full" />}>
             <DownloadSimple className="h-4 w-4" />
             Export
-          </Button>
-        </DropdownMenuTrigger>
+          </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="w-40 rounded-xl">
           <DropdownMenuItem onClick={handleExportCSV} className="gap-2 cursor-pointer">
             <FileCsv className="h-4 w-4" /> CSV
