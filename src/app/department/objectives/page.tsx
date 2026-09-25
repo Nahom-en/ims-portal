@@ -4,7 +4,7 @@ import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapp
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass, Warning, CheckCircle, Info } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
@@ -36,6 +36,7 @@ import { AlertDialog } from "@/components/ui/alert-dialog"
 
 export default function ObjectivesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const employee = useEmployee()
   const [data, setData] = useState<any[]>([])
@@ -53,7 +54,7 @@ export default function ObjectivesPage() {
   const [departmentId, setDepartmentId] = useState<string>("")
   
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState("ALL")
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL")
   const [processFilter, setProcessFilter] = useState("ALL")
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')

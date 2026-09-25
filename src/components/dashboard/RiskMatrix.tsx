@@ -3,6 +3,7 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { useEffect, useState, useMemo } from "react"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 
 export function RiskMatrix({ period, departmentId, refreshKey }: { period?: string, departmentId?: string, refreshKey?: number }) {
@@ -103,12 +104,13 @@ export function RiskMatrix({ period, departmentId, refreshKey }: { period?: stri
                 const hasRisks = count > 0
 
                 return (
-                  <div
+                  <Link
+                    href={`/department/risks?likelihood=${likelihood}&severity=${severity}`}
                     key={`${likelihood}-${severity}`}
                     className={`relative rounded-sm flex items-center justify-center text-sm font-bold transition-all ${color} ${
                       hasRisks 
-                        ? "ring-1 ring-inset ring-black/20 dark:ring-white/20 shadow-sm" 
-                        : "opacity-30 dark:opacity-20"
+                        ? "ring-1 ring-inset ring-black/20 dark:ring-white/20 shadow-sm hover:scale-105 cursor-pointer z-10" 
+                        : "opacity-30 dark:opacity-20 cursor-default"
                     }`}
                     title={`L:${likelihood} × S:${severity} = Score:${likelihood * severity}`}
                   >
@@ -122,10 +124,10 @@ export function RiskMatrix({ period, departmentId, refreshKey }: { period?: stri
                         {count}
                       </>
                     )}
-                  </div>
+                  </Link>
                 )
               })
-            ))}
+            ))} 
           </div>
             
             {/* X-axis label container */}

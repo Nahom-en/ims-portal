@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,13 +33,14 @@ import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
 
 export default function KPITrackingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const employee = useEmployee()
   const [data, setData] = useState<any[] /* eslint-disable-line @typescript-eslint/no-explicit-any */ >([])
   const [loading, setLoading] = useState(true)
   const [kpiToDelete, setKpiToDelete] = useState<any /* eslint-disable-line @typescript-eslint/no-explicit-any */ | null>(null)
   const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL")
   
   const supabase = createClient()
   useEffect(() => {

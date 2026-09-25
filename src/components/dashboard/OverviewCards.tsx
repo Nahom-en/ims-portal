@@ -146,12 +146,12 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
         <CardContent className="space-y-2">
           <div className="text-3xl font-bold tracking-tight text-foreground">{objTotal}</div>
           <div className="flex items-center gap-2 text-xs font-medium">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+            <Link href="/department/objectives?status=On Track" className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer">
               {objOnTrack} on track
-            </span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+            </Link>
+            <Link href="/department/objectives?status=Off Track" className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/60 transition-colors cursor-pointer">
               {objLagging} lagging
-            </span>
+            </Link>
           </div>
         </CardContent>
         
@@ -171,12 +171,12 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
             <span className="text-sm font-medium text-muted-foreground ml-2 px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800">{kpiSuccessRate}% success</span>
           </div>
           <div className="flex items-center gap-2 text-xs font-medium">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+            <Link href="/department/kpis?status=Achieved" className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer">
               {kpiMet} met
-            </span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+            </Link>
+            <Link href="/department/kpis?status=Deviated" className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60 transition-colors cursor-pointer">
               {kpiOff} missed
-            </span>
+            </Link>
           </div>
         </CardContent>
         
@@ -193,15 +193,15 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
         <CardContent className="space-y-2">
           <div className="text-3xl font-bold tracking-tight text-foreground">{totalRisk}</div>
           <div className="flex items-center gap-2 text-xs font-medium">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+            <Link href="/department/risks?status=Critical" className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60 transition-colors cursor-pointer">
               {riskHigh} high
-            </span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+            </Link>
+            <Link href="/department/risks?status=Medium" className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/60 transition-colors cursor-pointer">
               {riskMed} med
-            </span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+            </Link>
+            <Link href="/department/risks?status=Low" className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer">
               {riskLow} low
-            </span>
+            </Link>
           </div>
         </CardContent>
         
