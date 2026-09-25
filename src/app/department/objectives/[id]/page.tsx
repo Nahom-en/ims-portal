@@ -165,7 +165,7 @@ export default function ObjectiveDetailsPage() {
 
 
 
-  const handleUpdate = async (updatedData: ObjectiveFormData) => {
+  const handleUpdate = async (updatedData: ObjectiveFormData, note?: string) => {
     setSaving(true)
     
     // Instead of updating directly, we create an approval request
@@ -180,6 +180,7 @@ export default function ObjectiveDetailsPage() {
         current_step_index: 1,
         custom_metadata: {
           change_type: "UPDATE",
+          justification: note || "",
           proposed_changes: JSON.stringify(updatedData)
         }
       })
@@ -188,6 +189,20 @@ export default function ObjectiveDetailsPage() {
     if (error) { toast.error(`Save failed: ${error.message}`); return }
     
     toast.success("Edit submitted for approval.")
+    setShowJustificationModal(false)
+    setUpdateDataPending(null)
+    setJustification("")
+    setIsEditingPlanRequest(false)
+  }
+
+  const onFormSubmit = (data: ObjectiveFormData) => {
+    const authorId = (objective as any)?.custom_metadata?.author_id
+    if (authorId && employee?.id && authorId !== employee.id) {
+      setUpdateDataPending(data)
+      setShowJustificationModal(true)
+    } else {
+      handleUpdate(data)
+    }
   }
 
   return (

@@ -10,6 +10,7 @@ import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import ObjectiveForm, { ObjectiveFormData, AvailableKpi } from "@/components/forms/ObjectiveForm"
 import { createClient } from "@/lib/supabase/client"
 import { submitForApproval } from "@/lib/workflow"
+import { useEmployee } from "@/lib/employee-context"
 
 // ── Quarter string → ISO date range ─────────────────────────────────────────
 // e.g. "Q2 2026" → { start: "2026-04-01", end: "2026-06-30" }
@@ -30,6 +31,7 @@ function quarterToDateRange(quarter: string): { start: string; end: string } {
 export default function CreateObjectivePage() {
   const router = useRouter()
   const supabase = createClient()
+  const employee = useEmployee()
 
   // ── Lookup state ─────────────────────────────────────────────────────────────
   const [processes, setProcesses] = useState<string[]>([])
@@ -40,16 +42,19 @@ export default function CreateObjectivePage() {
 
   useEffect(() => {
     async function fetchLookups() {
-      // Placeholder: use first dept until Auth (Brick 3) gives us a real session
-      const { data: dept } = await supabase
-        .from("departments")
-        .select("id")
-        .limit(1)
-
-      if (dept && dept.length > 0) {
-        setDepartmentId(dept[0].id)
+      if (employee?.department_id) {
+        setDepartmentId(employee.department_id)
       } else {
-        console.error("Department lookup failed — RLS may be blocking anon reads on the departments table.")
+        const { data: dept } = await supabase
+          .from("departments")
+          .select("id")
+          .limit(1)
+
+        if (dept && dept.length > 0) {
+          setDepartmentId(dept[0].id)
+        } else {
+          console.error("Department lookup failed — RLS may be blocking anon reads on the departments table.")
+        }
       }
 
       const { data: procRows } = await supabase
