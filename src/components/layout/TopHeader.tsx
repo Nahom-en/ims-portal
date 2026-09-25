@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { CaretRight, Bell } from "@phosphor-icons/react"
 import { createClient } from "@/lib/supabase/client"
@@ -14,9 +14,10 @@ import {
 
 export function TopHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = createClient()
   
-  const [notifications, setNotifications] = useState<{id: string, title: string, message: string, is_read: boolean, created_at: string}[]>([])
+  const [notifications, setNotifications] = useState<{id: string, title: string, message: string, is_read: boolean, created_at: string, type?: string, approval_request_id?: string}[]>([])
   const [uuidNames, setUuidNames] = useState<Record<string, string>>({})
 
   // 1. Hook for Notifications
@@ -69,6 +70,8 @@ export function TopHeader() {
             message: n.message as string,
             created_at: n.created_at as string,
             is_read: n.is_read as boolean,
+            type: n.type as string,
+            approval_request_id: n.approval_request_id as string,
           }, ...prev].slice(0, 10))
         }
       )
@@ -117,13 +120,32 @@ export function TopHeader() {
     fetchNames()
   }, [pathname, supabase])
 
+
+  const handleNotificationClick = async (notif: {id: string, type?: string, approval_request_id?: string}) => {
+    // Optimistic UI update
+    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n))
+    
+    // DB Update
+    // @ts-expect-error - updating notifications table
+    await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id)
+
+    // Route
+    if (notif.approval_request_id) {
+      if (notif.type === 'ACTION_REQUIRED') {
+        router.push('/department/approvals')
+      } else {
+        router.push('/department/requests')
+      }
+    }
+  }
+
   const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, is_read: true })))
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data: empRows } = await supabase.from('employees').select('id').eq('auth_user_id', user.id).single()
     if (empRows) {
-      // @ts-expect-error
+      // @ts-expect-error - updating notifications table
       await supabase.from('notifications').update({ is_read: true }).eq('recipient_id', empRows.id)
     }
   }
@@ -230,6 +252,7 @@ export function TopHeader() {
                   {notifications.filter(n => !n.is_read).map((notif) => (
                     <DropdownMenuItem 
                       key={notif.id} 
+                      onSelect={() => handleNotificationClick(notif)}
                       className="flex items-start gap-3 p-4 border-b last:border-0 border-slate-100 dark:border-zinc-800/50 cursor-pointer rounded-none focus:bg-muted dark:focus:bg-zinc-900/50"
                     >
                       <div className="mt-1 shrink-0">
