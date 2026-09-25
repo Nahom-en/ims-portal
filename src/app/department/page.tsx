@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { FilePdf } from "@phosphor-icons/react"
+import { Button } from "@/components/ui/button"
 import { OverviewCards } from "@/components/dashboard/OverviewCards"
 import { ObjectiveChart, KpiChart } from "@/components/dashboard/TrendCharts"
 import { RiskMatrix } from "@/components/dashboard/RiskMatrix"
@@ -29,14 +31,7 @@ export default function DepartmentDashboardPage() {
   // Time-travel state
   const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
   const [activeYear, setActiveYear] = useState(actualYear)
-  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(null)
-  
-  // Set default once employee is loaded
-  useEffect(() => {
-    if (employee && departmentFilter === null) {
-      setDepartmentFilter(employee.department_id || 'ALL')
-    }
-  }, [employee, departmentFilter])
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || null)
   
   const [refreshKey, setRefreshKey] = useState(0)
 

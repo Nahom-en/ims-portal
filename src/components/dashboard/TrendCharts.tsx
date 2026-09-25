@@ -40,8 +40,8 @@ export function ObjectiveChart({ period, departmentId, refreshKey }: { period?: 
         .eq('reporting_period', activePeriod)
         .single()
         
-      let trackingData: any[] = []
-      let measurements: any[] = []
+      let trackingData: Record<string, unknown>[] = []
+      let measurements: Record<string, unknown>[] = []
       let nameToId: Record<string, string> = {}
       
       if (cycle) {
@@ -161,10 +161,10 @@ export function KpiChart({ period, departmentId, refreshKey }: { period?: string
       let baseScore = 0
       
       if (cycles && cycles.length > 0) {
-        const cycleIds = cycles.map((c: any) => c.id)
+        const cycleIds = cycles.map((c: Record<string, unknown>) => c.id)
         const { data: measurements } = await supabase.from('kpi_measurements').select('status').in('report_cycle_id', cycleIds)
         if (measurements && measurements.length > 0) {
-          const achieved = measurements.filter((m: any) => m.status === 'Achieved' || m.status === 'On Track').length
+          const achieved = measurements.filter((m: Record<string, unknown>) => m.status === 'Achieved' || m.status === 'On Track').length
           baseScore = Math.round((achieved / measurements.length) * 100)
         }
       }

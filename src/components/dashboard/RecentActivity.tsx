@@ -34,7 +34,7 @@ type Activity = {
   actor: string
   time: string
   date: Date
-  icon: any
+  icon: Record<string, unknown>
 }
 
 export function RecentActivity({ departmentId, refreshKey }: Props) {
@@ -66,7 +66,7 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
       const all: Activity[] = []
       
       if (objs.data) {
-        objs.data.forEach((item: any) => {
+        objs.data.forEach((item: Record<string, unknown>) => {
           all.push({
             id: `obj-${item.id}`,
             type: "objective",
@@ -80,7 +80,7 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
       }
       
       if (kpis.data) {
-        kpis.data.forEach((item: any) => {
+        kpis.data.forEach((item: Record<string, unknown>) => {
           all.push({
             id: `kpi-${item.id}`,
             type: "kpi",
@@ -94,7 +94,7 @@ export function RecentActivity({ departmentId, refreshKey }: Props) {
       }
       
       if (risks.data) {
-        risks.data.forEach((item: any) => {
+        risks.data.forEach((item: Record<string, unknown>) => {
           all.push({
             id: `risk-${item.id}`,
             type: "risk",

@@ -31,7 +31,7 @@ type Action = {
   title: string
   due: string
   priority: "high" | "medium" | "low"
-  icon: any
+  icon: Record<string, unknown>
 }
 
 export function PendingActions({ employeeId, refreshKey }: Props) {
@@ -62,7 +62,7 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
         .limit(3)
         
       if (reqs && reqs.length > 0) {
-        setActions(reqs.map((r: any) => {
+        setActions(reqs.map((r: Record<string, unknown>) => {
           const isOld = new Date(r.created_at).getTime() < Date.now() - 7 * 24 * 60 * 60 * 1000
           const typeName = r.entity_type.charAt(0).toUpperCase() + r.entity_type.slice(1)
           return {
@@ -105,7 +105,7 @@ export function PendingActions({ employeeId, refreshKey }: Props) {
         ) : actions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-sm text-muted-foreground gap-2">
             <CheckCircle weight="duotone" className="h-10 w-10 text-emerald-500 mb-1" />
-            <p>You're all caught up!</p>
+            <p>You&apos;re all caught up!</p>
           </div>
         ) : (
           <div className="space-y-5">

@@ -7,7 +7,7 @@ export async function submitForApproval(
     entityId?: string // Optional if it's a new item pending creation
     departmentId: string
     requestedBy: string
-    payload?: any // The proposed data
+    payload?: Record<string, unknown> // The proposed data
   }
 ) {
   // 1. Fetch the department's workflow template (JSONB steps)
@@ -215,7 +215,7 @@ export async function resubmit(supabase: SupabaseClient, params: { requestId: st
   await notifyApproversAtStep(supabase, request.id, request.department_id, steps[0], request.entity_type)
 }
 
-async function notifyApproversAtStep(supabase: SupabaseClient, requestId: string, departmentId: string, step: any, entityType: string) {
+async function notifyApproversAtStep(supabase: SupabaseClient, requestId: string, departmentId: string, step: { roleId: string | null }, entityType: string) {
   let approverIds: string[] = []
   if (typeof step === 'string') {
     const { data } = await supabase.from('employees').select('id').eq('department_id', departmentId).eq('role', step).eq('is_active', true)

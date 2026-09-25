@@ -94,7 +94,7 @@ export function DepartmentUsageList({ departments }: { departments: DeptOption[]
   }, [departments, selectedYear, selectedQuarter, supabase])
 
   const filtered = useMemo(() => {
-    let result = data.filter((d) =>
+    const result = data.filter((d) =>
       d.name.toLowerCase().includes(search.toLowerCase())
     )
 

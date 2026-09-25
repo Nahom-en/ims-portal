@@ -217,7 +217,7 @@ export default function UserForm({
           <Label>Cross-Department Access</Label>
           <Select
             value={formData.visibilityScope === 'ALL' ? 'ALL' : 'OWN'}
-            onValueChange={(val) => setFormData({ ...formData, visibilityScope: val as any })}
+            onValueChange={(val) => setFormData({ ...formData, visibilityScope: val as "ALL" | "OWN" | string[] })}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select access level" />

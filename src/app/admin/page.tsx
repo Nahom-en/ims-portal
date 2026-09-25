@@ -40,10 +40,10 @@ export default async function AdminDashboardPage() {
     .select("id, department_name, workflow_templates(id)")
   const totalDepts = depts?.length || 0
   const deptsWithWorkflow = depts?.filter(
-    (d: any) => d.workflow_templates && d.workflow_templates.length > 0
+    (d: Record<string, unknown>) => d.workflow_templates && d.workflow_templates.length > 0
   ) || []
   const deptsWithoutWorkflow = depts?.filter(
-    (d: any) => !d.workflow_templates || d.workflow_templates.length === 0
+    (d: Record<string, unknown>) => !d.workflow_templates || d.workflow_templates.length === 0
   ) || []
 
   // ── 3. Pending Approvals ──
@@ -75,7 +75,7 @@ export default async function AdminDashboardPage() {
 
   // ── 5. Department Adoption ──
   const deptAdoption = await Promise.all(
-    (depts || []).map(async (dept: any) => {
+    (depts || []).map(async (dept: Record<string, unknown>) => {
       const { count: objCount } = await supabase
         .from("objective_definitions")
         .select("id", { count: "exact", head: true })
@@ -83,7 +83,7 @@ export default async function AdminDashboardPage() {
         .eq("is_active", true)
 
       const { data: procs } = await supabase.from("processes").select("id").eq("department_id", dept.id)
-      const procIds = procs?.map((p: any) => p.id) || []
+      const procIds = procs?.map((p: Record<string, unknown>) => p.id) || []
       let kpiCount = 0
       if (procIds.length > 0) {
         const { count } = await supabase.from("kpi_definitions").select("id", { count: "exact", head: true }).in("process_id", procIds)
@@ -91,7 +91,7 @@ export default async function AdminDashboardPage() {
       }
 
       const { data: riskProcs } = await supabase.from("risk_procedures").select("id").eq("department_id", dept.id)
-      const riskProcIds = riskProcs?.map((p: any) => p.id) || []
+      const riskProcIds = riskProcs?.map((p: Record<string, unknown>) => p.id) || []
       let deptRiskCount = 0
       if (riskProcIds.length > 0) {
         const { count } = await supabase.from("risk_definitions").select("id", { count: "exact", head: true }).in("procedure_id", riskProcIds)
@@ -111,7 +111,7 @@ export default async function AdminDashboardPage() {
 
   // ── 7. Setup Warnings ──
   const warnings: { id: string; message: string; action?: { label: string; href: string } }[] = []
-  deptsWithoutWorkflow.forEach((d: any) => {
+  deptsWithoutWorkflow.forEach((d: Record<string, unknown>) => {
     warnings.push({
       id: `wf-${d.id}`,
       message: `"${d.department_name}" has no approval chain configured.`,
@@ -138,7 +138,7 @@ export default async function AdminDashboardPage() {
   }
 
   // Department options for the chart filter
-  const deptOptions = (depts || []).map((d: any) => ({ id: d.id, name: d.department_name }))
+  const deptOptions = (depts || []).map((d: Record<string, unknown>) => ({ id: d.id, name: d.department_name }))
 
   // ── Render ──
   return (
@@ -372,7 +372,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {recentUsers && recentUsers.length > 0 ? (
-              recentUsers.map((user: any) => (
+              recentUsers.map((user: Record<string, unknown>) => (
                 <div key={user.id} className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0">
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{user.firstname} {user.lastname}</p>

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
-  } catch (error: any) {
+  } catch (error: Record<string, unknown>) {
     console.error('Workflow API Error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
