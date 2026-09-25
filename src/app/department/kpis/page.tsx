@@ -167,7 +167,7 @@ export default function KPITrackingPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["Q1","Q2","Q3","Q4"].map((q) => (
+              {["ALL", "Q1","Q2","Q3","Q4"].map((q) => (
                 <SelectItem key={q} value={q}>{q}</SelectItem>
               ))}
             </SelectContent>
@@ -297,10 +297,11 @@ export default function KPITrackingPage() {
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="ALL">All</SelectItem>
               <SelectItem value="Achieved">Achieved</SelectItem>
-              <SelectItem value="Missed">Missed</SelectItem>
-              <SelectItem value="No Data">No Data</SelectItem>
+              <SelectItem value="Deviated">Deviated</SelectItem>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Not Measured">Not Measured</SelectItem>
             </SelectContent>
           </Select>
         </div>

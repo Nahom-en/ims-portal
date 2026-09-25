@@ -244,7 +244,7 @@ export default function ApprovalsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["Q1","Q2","Q3","Q4"].map((q) => (
+              {["ALL", "Q1","Q2","Q3","Q4"].map((q) => (
                 <SelectItem key={q} value={q}>{q}</SelectItem>
               ))}
             </SelectContent>

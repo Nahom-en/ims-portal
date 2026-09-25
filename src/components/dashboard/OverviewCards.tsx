@@ -20,7 +20,12 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
       // 1. Resolve period (e.g. "Q1 2026")
       const periodStr = period || 'Q1 2026'
 
-      let cycleQ = supabase.from('report_cycles').select('id').eq('reporting_period', periodStr)
+      let cycleQ = supabase.from('report_cycles').select('id')
+      if (periodStr.startsWith('ALL ')) {
+        cycleQ = cycleQ.like('reporting_period', `%${periodStr.split(' ')[1]}`)
+      } else {
+        cycleQ = cycleQ.eq('reporting_period', periodStr)
+      }
       if (departmentId && departmentId !== 'ALL') {
         cycleQ = cycleQ.eq('department_id', departmentId)
       }

@@ -132,7 +132,12 @@ export default function RiskRegisterPage() {
   const processedData = useMemo(() => {
     let result = data;
     result = result.filter(d => {
-      if (statusFilter !== "ALL" && d.status !== statusFilter) return false;
+      if (statusFilter !== "ALL") {
+        if (statusFilter === "Critical" && d.riskScore < 15) return false;
+        if (statusFilter === "Medium" && (d.riskScore < 5 || d.riskScore >= 15)) return false;
+        if (statusFilter === "Low" && (d.riskScore === 0 || d.riskScore >= 5)) return false;
+        if (statusFilter === "Not Assessed" && d.riskScore > 0) return false;
+      }
       return d.title.toLowerCase().includes(search.toLowerCase()) || 
              d.process.toLowerCase().includes(search.toLowerCase());
     });
@@ -207,7 +212,7 @@ export default function RiskRegisterPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["Q1","Q2","Q3","Q4"].map((q) => (
+              {["ALL", "Q1","Q2","Q3","Q4"].map((q) => (
                 <SelectItem key={q} value={q}>{q}</SelectItem>
               ))}
             </SelectContent>
@@ -299,13 +304,14 @@ export default function RiskRegisterPage() {
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Severity" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="Open">Open</SelectItem>
-              <SelectItem value="Mitigating">Mitigating</SelectItem>
-              <SelectItem value="Closed">Closed</SelectItem>
+              <SelectItem value="ALL">All</SelectItem>
+              <SelectItem value="Critical">Critical</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
+              <SelectItem value="Not Assessed">Not Assessed</SelectItem>
             </SelectContent>
           </Select>
         </div>

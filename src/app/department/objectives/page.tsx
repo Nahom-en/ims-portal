@@ -75,8 +75,8 @@ export default function ObjectivesPage() {
         
       if (objs) {
         // 1. Get cycle IDs for the active period
-        const periodStr = `${activeQuarter} ${activeYear}`
-        const { data: cycles } = await supabase.from('report_cycles').select('id').eq('reporting_period', periodStr)
+        const { data: cycles } = await supabase.from('report_cycles').select('id')
+        .like('reporting_period', activeQuarter === 'ALL' ? `%${activeYear}` : `${activeQuarter} ${activeYear}`)
         const cycleIds = cycles?.map(c => c.id) || []
         
         let trackingData: any[] = []
