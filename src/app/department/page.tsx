@@ -137,6 +137,10 @@ export default function DepartmentDashboardPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" className="h-9 gap-2 print:hidden" onClick={() => window.print()}>
+            <FilePdf className="h-4 w-4 text-rose-500" />
+            <span className="hidden sm:inline">Quarterly Report</span>
+          </Button>
         </div>
       </div>
 

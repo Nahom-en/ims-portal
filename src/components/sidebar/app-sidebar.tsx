@@ -60,7 +60,7 @@ export function AppSidebar({ employee }: { employee: Employee }) {
   const initials = `${employee.firstname?.[0] || ""}${employee.lastname?.[0] || ""}`
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar className="print:hidden" collapsible="icon">
       {/* === HEADER === */}
         <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
   <SidebarHeaderLogo />
