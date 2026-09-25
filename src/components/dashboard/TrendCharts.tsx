@@ -151,42 +151,59 @@ export function KpiChart({ period, departmentId, refreshKey }: { period?: string
 
   useEffect(() => {
     async function fetchData() {
-      // Get KPIs for the period
-      let cycleQ = supabase.from('report_cycles').select('id').eq('reporting_period', `${activeQuarter} ${activeYear}`)
+      // Helper to generate the last 4 quarters (e.g., Q1 2026 -> Q4 2025 -> Q3 2025 -> Q2 2025)
+      const getLastNQuarters = (startQ: number, startY: number, n: number) => {
+        const result = [];
+        let q = startQ;
+        let y = startY;
+        for (let i = 0; i < n; i++) {
+          result.unshift(`Q${q} ${y}`);
+          q--;
+          if (q === 0) {
+            q = 4;
+            y--;
+          }
+        }
+        return result;
+      };
+
+      const qNum = parseInt(activeQuarter.replace("Q", ""));
+      const yNum = parseInt(activeYear);
+      const periods = getLastNQuarters(qNum, yNum, 4);
+
+      // Fetch all cycles in these periods
+      let cycleQ = supabase.from('report_cycles')
+        .select('id, reporting_period')
+        .in('reporting_period', periods)
+        
       if (departmentId && departmentId !== 'ALL') {
         cycleQ = cycleQ.eq('department_id', departmentId)
       }
+      
       const { data: cycles } = await cycleQ
       
-      let baseScore = 0
-      
+      let measurements: any[] = []
       if (cycles && cycles.length > 0) {
-        const cycleIds = cycles.map((c: Record<string, unknown>) => c.id)
-        const { data: measurements } = await supabase.from('kpi_measurements').select('status').in('report_cycle_id', cycleIds)
-        if (measurements && measurements.length > 0) {
-          const achieved = measurements.filter((m: Record<string, unknown>) => m.status === 'Achieved' || m.status === 'On Track').length
-          baseScore = Math.round((achieved / measurements.length) * 100)
-        }
+        const cycleIds = cycles.map((c: any) => c.id)
+        const { data: ms } = await supabase.from('kpi_measurements').select('report_cycle_id, status').in('report_cycle_id', cycleIds)
+        if (ms) measurements = ms
       }
 
-      // We still map out the 6 months leading to this quarter's end for visual trend consistency
-      const quarterNum = parseInt(activeQuarter.replace("Q", ""))
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-      const endMonthIndex = quarterNum * 3 - 1
-      const trend = []
-      
-      for (let i = 5; i >= 0; i--) {
-        let mIndex = endMonthIndex - i
-        if (mIndex < 0) mIndex += 12
-        // Since we don't have historical monthly tracking natively in this schema without querying 
-        // 6 different cycles, we use the real baseScore and apply a realistic stabilization variance.
-        const variances = [0, -2, 4, -5, 3, -1]
-        const variance = variances[i] || 0
-        let prevScore = Math.min(100, Math.max(0, baseScore - (i * 2) + variance))
-        if (baseScore === 0 && i !== 0) prevScore = 0 
+      // Map the real data per quarter
+      const trend = periods.map(p => {
+        const periodCycles = cycles?.filter((c: any) => c.reporting_period === p) || []
+        const pCycleIds = periodCycles.map((c: any) => c.id)
+        const pMeas = measurements.filter(m => pCycleIds.includes(m.report_cycle_id))
         
-        trend.push({ month: `${monthNames[mIndex]}`, score: i === 0 ? baseScore : prevScore })
-      }
+        let score = 0
+        if (pMeas.length > 0) {
+          const achieved = pMeas.filter(m => m.status === 'Achieved' || m.status === 'On Track').length
+          score = Math.round((achieved / pMeas.length) * 100)
+        }
+        
+        return { period: p, score }
+      })
+      
       setData(trend)
     }
     fetchData()
@@ -196,13 +213,13 @@ export function KpiChart({ period, departmentId, refreshKey }: { period?: string
     <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>KPI Performance Trend</CardTitle>
-        <CardDescription>Aggregate score for {activeQuarter} {activeYear}</CardDescription>
+        <CardDescription>Aggregate score for the last 4 quarters</CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
         <ChartContainer config={kpiConfig} className="h-[300px] w-full">
           <AreaChart accessibilityLayer data={data} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={10} />
+            <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={10} />
             <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tickMargin={10} />
             <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
             <Area type="monotone" dataKey="score" stroke="var(--color-score)" fill="var(--color-score)" fillOpacity={0.2} />
