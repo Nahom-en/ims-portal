@@ -138,9 +138,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
       {/* ── 1. Objective Card ── */}
       <Card className="">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold text-muted-foreground">
-            Objectives
-          </CardTitle>
+          <CardTitle className="text-base font-semibold text-muted-foreground">Total Objectives</CardTitle>
           <div className="p-2 rounded-lg bg-primary/10 text-primary dark:bg-blue-950/40 dark:text-blue-400">
             <Target className="h-5 w-5" />
           </div>
@@ -162,15 +160,15 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
       {/* ── 2. KPI Card ── */}
       <Card className="">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold text-muted-foreground">KPIs</CardTitle>
+          <CardTitle className="text-base font-semibold text-muted-foreground">Total KPIs</CardTitle>
           <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
             <ChartBar className="h-5 w-5" />
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold tracking-tight text-foreground">{kpiSuccessRate}%</span>
-            <span className="text-sm font-medium text-muted-foreground">success</span>
+            <span className="text-3xl font-bold tracking-tight text-foreground">{kpiTotal}</span>
+            <span className="text-sm font-medium text-muted-foreground ml-2 px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800">{kpiSuccessRate}% success</span>
           </div>
           <div className="flex items-center gap-2 text-xs font-medium">
             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
@@ -187,7 +185,7 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
       {/* ── 3. Risk Card ── */}
       <Card className="">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold text-muted-foreground">Risks</CardTitle>
+          <CardTitle className="text-base font-semibold text-muted-foreground">Total Risks</CardTitle>
           <div className="p-2 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400">
             <ShieldWarning className="h-5 w-5" />
           </div>
