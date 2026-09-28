@@ -372,7 +372,7 @@ export function DashboardActionCenter({ employee, refreshKey }: Props) {
               <p className="text-xs text-muted-foreground max-w-sm">
                 There are no pending requests currently waiting for your review or approval.
               </p>
-              <Button variant="outline" size="sm" render={<Link href="/department/approvals?tab=approved" />} className="mt-2 text-xs">
+              <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/department/approvals?tab=approved" />} className="mt-2 text-xs">
                 View approval history
               </Button>
             </div>
@@ -426,6 +426,7 @@ export function DashboardActionCenter({ employee, refreshKey }: Props) {
                       <TableCell className="py-3 text-right pr-4">
                         <Button
                           size="sm"
+                          nativeButton={false}
                           render={<Link href="/department/approvals" />}
                           className="h-7 text-xs bg-primary hover:bg-primary/90 text-white gap-1"
                         >
@@ -449,13 +450,13 @@ export function DashboardActionCenter({ employee, refreshKey }: Props) {
                 When you create or update Objectives, KPIs, or Risks, your submitted requests will appear here for tracking.
               </p>
               <div className="flex items-center gap-2 mt-3 flex-wrap justify-center">
-                <Button variant="outline" size="sm" render={<Link href="/department/objectives/new" />} className="text-xs gap-1">
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/department/objectives/new" />} className="text-xs gap-1">
                   <Plus className="h-3 w-3" /> New Objective
                 </Button>
-                <Button variant="outline" size="sm" render={<Link href="/department/kpis/new" />} className="text-xs gap-1">
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/department/kpis/new" />} className="text-xs gap-1">
                   <Plus className="h-3 w-3" /> New KPI
                 </Button>
-                <Button variant="outline" size="sm" render={<Link href="/department/risks/new" />} className="text-xs gap-1">
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/department/risks/new" />} className="text-xs gap-1">
                   <Plus className="h-3 w-3" /> Log Risk
                 </Button>
               </div>
@@ -506,6 +507,7 @@ export function DashboardActionCenter({ employee, refreshKey }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          nativeButton={false}
                           render={<Link href="/department/requests" />}
                           className="h-7 text-xs text-primary hover:text-primary gap-1"
                         >
