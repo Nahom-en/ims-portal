@@ -33,6 +33,8 @@ interface KpiRow {
   name: string;
   processName: string;
   responsibility: string;
+  createdByName: string;
+  createdByInitials: string;
   target: string;
   actual: string;
   achievementPercentage: string;
@@ -126,6 +128,14 @@ export default function KPITrackingPage() {
           .order('created_at', { ascending: false });
         if (mData) measurements = mData;
       }
+
+      // Fetch employees and approval_requests for author resolution
+      const [empsRes, appReqsRes] = await Promise.all([
+        supabase.from('employees').select('id, firstname, lastname'),
+        supabase.from('approval_requests').select('entity_id, requested_by').eq('entity_type', 'kpi')
+      ]);
+      const empsMap = new Map((empsRes.data || []).map(e => [e.id, `${e.firstname || ''} ${e.lastname || ''}`.trim()]));
+      const creatorMap = new Map((appReqsRes.data || []).map(a => [a.entity_id, a.requested_by]));
 
       const mapped: KpiRow[] = kpis.map((k: any) => {
         const m = measurements.find((meas: any) => meas.kpi_id === k.id);
@@ -247,11 +257,17 @@ export default function KPITrackingPage() {
         // 6. Process name
         const procName = k.processes?.process_name?.trim() || "Unassigned Process";
 
+        const creatorId = k.custom_metadata?.author_id || creatorMap.get(k.id);
+        const createdByName = empsMap.get(creatorId) || "System";
+        const createdByInitials = createdByName.split(" ").map((n: string) => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "SY";
+
         return {
           id: k.id,
           name: k.kpi_name,
           processName: procName,
           responsibility,
+          createdByName,
+          createdByInitials,
           target: targetDisplay,
           actual: actualDisplay,
           achievementPercentage: achievementPct,
@@ -309,6 +325,7 @@ export default function KPITrackingPage() {
     { key: 'name', label: 'KPI / Metric' },
     { key: 'processName', label: 'Process' },
     { key: 'responsibility', label: 'Responsibility' },
+    { key: 'createdByName', label: 'Created By' },
     { key: 'target', label: 'Target' },
     { key: 'actual', label: 'Actual' },
     { key: 'achievementPercentage', label: 'Achievement %' },
@@ -588,39 +605,44 @@ export default function KPITrackingPage() {
                 <div className="flex items-center gap-1 font-semibold">Responsibility {sortKey === 'responsibility' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 4. Target */}
+              {/* 4. Created By */}
+              <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('createdByName')}>
+                <div className="flex items-center gap-1 font-semibold">Created By {sortKey === 'createdByName' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 5. Target */}
               <TableHead className="h-10 cursor-pointer min-w-[100px]" onClick={() => handleSort('target')}>
                 <div className="flex items-center gap-1 font-semibold">Target {sortKey === 'target' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 5. Actual */}
+              {/* 6. Actual */}
               <TableHead className="h-10 cursor-pointer min-w-[100px]" onClick={() => handleSort('actual')}>
                 <div className="flex items-center gap-1 font-semibold">Actual {sortKey === 'actual' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 6. Achievement % */}
+              {/* 7. Achievement % */}
               <TableHead className="h-10 cursor-pointer min-w-[120px]" onClick={() => handleSort('achievementPercentage')}>
                 <div className="flex items-center gap-1 font-semibold">Achievement % {sortKey === 'achievementPercentage' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 7. Status */}
+              {/* 8. Status */}
               <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('status')}>
                 <div className="flex items-center gap-1 font-semibold">Status {sortKey === 'status' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 8. Remark / Justification */}
+              {/* 9. Remark / Justification */}
               <TableHead className="h-10 min-w-[180px] font-semibold">Remark / Justification</TableHead>
 
-              {/* 9. Action */}
+              {/* 10. Action */}
               <TableHead className="h-10 w-[90px] text-right pr-4 font-semibold">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton columns={9} rows={3} />
+              <TableSkeleton columns={10} rows={3} />
             ) : sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="h-48 text-center text-muted-foreground">
                   No KPIs found for the selected period.
                 </TableCell>
               </TableRow>
@@ -639,7 +661,7 @@ export default function KPITrackingPage() {
                     className="bg-muted/80 dark:bg-zinc-900/80 hover:bg-muted dark:hover:bg-zinc-900 cursor-pointer select-none border-t border-b transition-colors"
                     onClick={() => toggleProcess(processName)}
                   >
-                    <TableCell colSpan={9} className="py-2.5 px-4">
+                    <TableCell colSpan={10} className="py-2.5 px-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div onClick={(e) => e.stopPropagation()}>
@@ -695,7 +717,17 @@ export default function KPITrackingPage() {
                         {row.responsibility}
                       </TableCell>
 
-                      {/* 4. Target */}
+                      {/* 4. Created By */}
+                      <TableCell className="text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium text-[10px] shrink-0">
+                            {row.createdByInitials}
+                          </div>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{row.createdByName}</span>
+                        </div>
+                      </TableCell>
+
+                      {/* 5. Target */}
                       <TableCell className="text-sm tabular-nums whitespace-nowrap">
                         {row.target}
                       </TableCell>

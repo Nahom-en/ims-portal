@@ -30,7 +30,7 @@ import {SidebarHeaderLogo} from "@/components/sidebar/sidebar-header-logo"
 
 const primaryNav = [
   { title: "Dashboard",     url: "/department", icon: SquaresFourIcon },
-  { title: "Approvals",     url: "/department/approvals", icon: CheckCircleIcon, hideFrom: ["VIEWER"] },
+  { title: "Approvals",     url: "/department/approvals", icon: CheckCircleIcon, requireApprover: true },
   { title: "Objectives",    url: "/department/objectives", icon: TargetIcon },
   { title: "KPIs",  url: "/department/kpis", icon: ChartBarIcon },
   { title: "Risks", url: "/department/risks", icon: ShieldWarningIcon },
@@ -75,6 +75,7 @@ export function AppSidebar({ employee }: { employee: Employee }) {
             <SidebarMenu className="gap-0.5">
               {primaryNav.map((item) => {
                 if (item.hideFrom && item.hideFrom.includes(employee?.role)) return null
+                if (item.requireApprover && !employee?.is_approver) return null
                 
                 return (
                   <SidebarMenuItem key={item.title}>

@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button"
 import { OverviewCards } from "@/components/dashboard/OverviewCards"
 import { ObjectiveChart, KpiChart } from "@/components/dashboard/TrendCharts"
 import { RiskMatrix } from "@/components/dashboard/RiskMatrix"
-import { RecentActivity } from "@/components/dashboard/RecentActivity"
-import { PendingActions } from "@/components/dashboard/PendingActions"
+import { DashboardActionCenter } from "@/components/dashboard/DashboardActionCenter"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -42,9 +41,7 @@ export default function DepartmentDashboardPage() {
     if (!isLive || !employee || departmentFilter === null) return
 
     const supabase = createClient()
-    const targetDept = employee.role !== 'SYSTEM_ADMIN' ? employee.department_id : (departmentFilter !== 'ALL' ? departmentFilter : null)
-    
-    // Subscribe to all measurements. If we have a specific targetDept, we can't easily filter
+    // Subscribe to all measurements. If we have a specific department, we can't easily filter
     // postgres_changes by a joined table. The simplest way is to subscribe to all and just refetch,
     // relying on RLS/ABAC in the fetch itself. 
     const channel = supabase.channel('dashboard-live')
@@ -169,17 +166,11 @@ export default function DepartmentDashboardPage() {
         />
       </div>
 
-      {/* ── Activity & Actions Row ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <RecentActivity 
-          departmentId={employee?.role !== 'SYSTEM_ADMIN' ? employee?.department_id : (departmentFilter !== 'ALL' ? departmentFilter : undefined)}
-          refreshKey={refreshKey}
-        />
-        <PendingActions 
-          employeeId={employee?.id}
-          refreshKey={refreshKey}
-        />
-      </div>
+      {/* ── Action Center (My Approvals / My Requests) ── */}
+      <DashboardActionCenter 
+        employee={employee}
+        refreshKey={refreshKey}
+      />
     </div>
   )
 }

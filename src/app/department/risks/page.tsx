@@ -39,6 +39,8 @@ export interface RiskRow {
   title: string;
   processName: string;
   owner: string;
+  createdByName: string;
+  createdByInitials: string;
   likelihood: number | null;
   likelihoodLabel: string;
   severity: number | null;
@@ -190,14 +192,16 @@ export default function RiskRegisterPage() {
         return;
       }
 
-      // 2. Fetch employees for Owner resolution
-      const { data: emps } = await supabase
-        .from('employees')
-        .select('id, firstname, lastname');
+      // 2. Fetch employees and approval_requests for Owner and Creator resolution
+      const [empsRes, appReqsRes] = await Promise.all([
+        supabase.from('employees').select('id, firstname, lastname'),
+        supabase.from('approval_requests').select('entity_id, requested_by').eq('entity_type', 'risk')
+      ]);
       const empsMap = new Map<string, string>();
-      if (emps) {
-        emps.forEach(e => empsMap.set(e.id, `${e.firstname} ${e.lastname}`.trim()));
+      if (empsRes.data) {
+        empsRes.data.forEach(e => empsMap.set(e.id, `${e.firstname} ${e.lastname}`.trim()));
       }
+      const creatorMap = new Map((appReqsRes.data || []).map(a => [a.entity_id, a.requested_by]));
 
       // 3. Fetch procedures & processes for Process resolution
       const { data: procs } = await supabase
@@ -301,11 +305,17 @@ export default function RiskRegisterPage() {
           !r.treatment_solution
         );
 
+        const creatorId = meta.author_id || creatorMap.get(r.id);
+        const createdByName = empsMap.get(creatorId) || "System";
+        const createdByInitials = createdByName.split(" ").map((n: string) => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "SY";
+
         return {
           id: r.id,
           title: r.risk_statement,
           processName,
           owner: ownerName,
+          createdByName,
+          createdByInitials,
           likelihood: l,
           likelihoodLabel,
           severity: s,
@@ -408,6 +418,7 @@ export default function RiskRegisterPage() {
     { key: 'title', label: 'Risk' },
     { key: 'processName', label: 'Process' },
     { key: 'owner', label: 'Risk Owner' },
+    { key: 'createdByName', label: 'Created By' },
     { key: 'likelihoodLabel', label: 'Likelihood' },
     { key: 'severityLabel', label: 'Impact / Severity' },
     { key: 'rating', label: 'Risk Rating' },
@@ -671,39 +682,44 @@ export default function RiskRegisterPage() {
                 <div className="flex items-center gap-1 font-semibold">Risk Owner {sortKey === 'owner' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 4. Likelihood */}
+              {/* 4. Created By */}
+              <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('createdByName')}>
+                <div className="flex items-center gap-1 font-semibold">Created By {sortKey === 'createdByName' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 5. Likelihood */}
               <TableHead className="h-10 cursor-pointer min-w-[130px]" onClick={() => handleSort('likelihood')}>
                 <div className="flex items-center gap-1 font-semibold">Likelihood {sortKey === 'likelihood' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 5. Impact / Severity */}
+              {/* 6. Impact / Severity */}
               <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('severity')}>
                 <div className="flex items-center gap-1 font-semibold">Impact / Severity {sortKey === 'severity' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 6. Risk Rating */}
+              {/* 7. Risk Rating */}
               <TableHead className="h-10 cursor-pointer min-w-[130px]" onClick={() => handleSort('riskScore')}>
                 <div className="flex items-center gap-1 font-semibold">Risk Rating {sortKey === 'riskScore' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 7. Mitigation / Response */}
+              {/* 8. Mitigation / Response */}
               <TableHead className="h-10 min-w-[160px] font-semibold">Mitigation / Response</TableHead>
 
-              {/* 8. Action Status */}
+              {/* 9. Action Status */}
               <TableHead className="h-10 cursor-pointer min-w-[120px]" onClick={() => handleSort('actionStatus')}>
                 <div className="flex items-center gap-1 font-semibold">Action Status {sortKey === 'actionStatus' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 9. Action */}
+              {/* 10. Action */}
               <TableHead className="h-10 w-[90px] text-right pr-4 font-semibold">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton columns={9} rows={3} />
+              <TableSkeleton columns={10} rows={3} />
             ) : sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="h-48 text-center text-muted-foreground">
                   No risks found for the selected filters.
                 </TableCell>
               </TableRow>
@@ -722,7 +738,7 @@ export default function RiskRegisterPage() {
                     className="bg-muted/80 dark:bg-zinc-900/80 hover:bg-muted dark:hover:bg-zinc-900 cursor-pointer select-none border-t border-b transition-colors"
                     onClick={() => toggleProcess(processName)}
                   >
-                    <TableCell colSpan={9} className="py-2.5 px-4">
+                    <TableCell colSpan={10} className="py-2.5 px-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div onClick={(e) => e.stopPropagation()}>
@@ -778,7 +794,17 @@ export default function RiskRegisterPage() {
                         {row.owner}
                       </TableCell>
 
-                      {/* 4. Likelihood */}
+                      {/* 4. Created By */}
+                      <TableCell className="text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium text-[10px] shrink-0">
+                            {row.createdByInitials}
+                          </div>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{row.createdByName}</span>
+                        </div>
+                      </TableCell>
+
+                      {/* 5. Likelihood */}
                       <TableCell className="text-xs tabular-nums whitespace-nowrap text-muted-foreground">
                         {row.likelihoodLabel}
                       </TableCell>

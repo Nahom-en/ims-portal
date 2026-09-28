@@ -84,6 +84,14 @@ export default function ObjectivesPage() {
           .like('reporting_period', activeQuarter === 'ALL' ? `%${activeYear}` : `${activeQuarter} ${activeYear}`)
         const cycleIds = cycles?.map(c => c.id) || []
         
+        // 2. Fetch employees and approval_requests for author resolution
+        const [empsRes, appReqsRes] = await Promise.all([
+          supabase.from('employees').select('id, firstname, lastname'),
+          supabase.from('approval_requests').select('entity_id, requested_by').eq('entity_type', 'objective')
+        ])
+        const empsMap = new Map((empsRes.data || []).map(e => [e.id, `${e.firstname || ''} ${e.lastname || ''}`.trim()]))
+        const creatorMap = new Map((appReqsRes.data || []).map(a => [a.entity_id, a.requested_by]))
+
         let trackingData: any[] = []
         if (cycleIds.length > 0 && objs.length > 0) {
           const objIds = objs.map(o => o.id)
@@ -141,12 +149,18 @@ export default function ObjectivesPage() {
           const isSuccess = displayStatus === 'Success'
           const followupRequired = hasFollowupAction || (!isSuccess && displayStatus !== 'No Review' && hasDeviation)
 
+          const creatorId = meta.author_id || creatorMap.get(o.id) || o.manager_id
+          const createdByName = empsMap.get(creatorId) || "System"
+          const createdByInitials = createdByName.split(" ").map((n: string) => n[0]).filter(Boolean).join("").slice(0, 2).toUpperCase() || "SY"
+
           return {
             id: o.id,
             name: o.objective_description,
             department_id: o.department_id,
             process: processName,
             author_id: meta.author_id,
+            createdByName,
+            createdByInitials,
             targetPeriod,
             rawStatus,
             displayStatus,
@@ -220,6 +234,7 @@ export default function ObjectivesPage() {
   const exportColumns = [
     { key: 'name', label: 'Objective' },
     { key: 'process', label: 'Process' },
+    { key: 'createdByName', label: 'Created By' },
     { key: 'targetPeriod', label: 'Target Period' },
     { key: 'displayStatus', label: 'Q1 Status vs Target' },
     { key: 'evidenceLabel', label: 'Evidence' },
@@ -471,32 +486,37 @@ export default function ObjectivesPage() {
                 <div className="flex items-center gap-1 font-semibold">Process {sortKey === 'process' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 4. Target Period */}
+              {/* 4. Created By */}
+              <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('createdByName')}>
+                <div className="flex items-center gap-1 font-semibold">Created By {sortKey === 'createdByName' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 5. Target Period */}
               <TableHead className="h-10 cursor-pointer min-w-[110px]" onClick={() => handleSort('targetPeriod')}>
                 <div className="flex items-center gap-1 font-semibold">Target Period {sortKey === 'targetPeriod' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 5. Q1 Status vs Target */}
+              {/* 6. Q1 Status vs Target */}
               <TableHead className="h-10 cursor-pointer min-w-[160px]" onClick={() => handleSort('displayStatus')}>
                 <div className="flex items-center gap-1 font-semibold">Q1 Status vs Target {sortKey === 'displayStatus' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
 
-              {/* 6. Evidence */}
+              {/* 7. Evidence */}
               <TableHead className="h-10 min-w-[120px] font-semibold">Evidence</TableHead>
 
-              {/* 7. Follow-up */}
+              {/* 8. Follow-up */}
               <TableHead className="h-10 min-w-[110px] font-semibold">Follow-up</TableHead>
 
-              {/* 8. Action */}
+              {/* 9. Action */}
               <TableHead className="h-10 w-[90px] text-right pr-4 font-semibold">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton columns={8} rows={3} />
+              <TableSkeleton columns={9} rows={3} />
             ) : sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No objectives found.</TableCell>
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No objectives found.</TableCell>
               </TableRow>
             ) : (
               sortedData.map((row) => (
@@ -524,7 +544,17 @@ export default function ObjectivesPage() {
                     {row.process}
                   </TableCell>
 
-                  {/* 4. Target Period */}
+                  {/* 4. Created By */}
+                  <TableCell className="text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium text-[10px] shrink-0">
+                        {row.createdByInitials}
+                      </div>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{row.createdByName}</span>
+                    </div>
+                  </TableCell>
+
+                  {/* 5. Target Period */}
                   <TableCell className="text-sm tabular-nums whitespace-nowrap">
                     {row.targetPeriod}
                   </TableCell>

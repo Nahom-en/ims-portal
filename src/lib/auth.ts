@@ -16,7 +16,7 @@ export async function getCurrentEmployee(supabase: SupabaseClient) {
 
 
   let is_approver = false
-  if (employee && employee.role === 'SYSTEM_ADMIN') {
+  if (employee && (employee.role === 'SYSTEM_ADMIN' || employee.role === 'DEPARTMENT_MANAGER')) {
     is_approver = true
   } else if (employee) {
     // Check if user is head of any department

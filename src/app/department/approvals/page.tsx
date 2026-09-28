@@ -19,7 +19,8 @@ import {
   MagnifyingGlass,
   Funnel,
   ChatCircleDots,
-  ArrowClockwise
+  ArrowClockwise,
+  ShieldWarning
 } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -40,7 +41,7 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 
 import { useEmployee } from "@/lib/employee-context"
 
@@ -88,8 +89,16 @@ export default function ApprovalsPage() {
   const employee = useEmployee()
   const employeeId = employee?.id
   const employeeRole = employee?.company_role_id
+  const router = useRouter()
 
   const supabase = createClient()
+
+  useEffect(() => {
+    if (employee && !employee.is_approver) {
+      toast.error("Access restricted: You do not have approval privileges.")
+      router.replace("/department")
+    }
+  }, [employee, router])
 
   useEffect(() => {
     async function fetchData() {
@@ -442,6 +451,26 @@ export default function ApprovalsPage() {
   const filteredInbox = filterList(inboxItems, false)
   const filteredApproved = filterList(approvedItems, true)
   const filteredOutbox = filterList(outboxItems, true)
+
+  if (employee && !employee.is_approver) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center h-[60vh]">
+        <ShieldWarning className="h-12 w-12 text-amber-500 mb-3" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Access Restricted</h2>
+        <p className="text-muted-foreground text-sm max-w-md mt-1 mb-6">
+          You do not have approval privileges configured in this system. If you submitted change requests, you can track them in My Requests.
+        </p>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => router.push("/department")}>
+            Return to Dashboard
+          </Button>
+          <Button onClick={() => router.push("/department/requests")}>
+            View My Requests
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
