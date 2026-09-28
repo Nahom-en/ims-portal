@@ -79,51 +79,122 @@ export default function ObjectivesPage() {
         
       if (objs) {
         // 1. Get cycle IDs for the active period
-        const { data: cycles } = await supabase.from('report_cycles').select('id')
-        .like('reporting_period', activeQuarter === 'ALL' ? `%${activeYear}` : `${activeQuarter} ${activeYear}`)
+        const { data: cycles } = await supabase.from('report_cycles').select('id, reporting_period')
+          .like('reporting_period', activeQuarter === 'ALL' ? `%${activeYear}` : `${activeQuarter} ${activeYear}`)
         const cycleIds = cycles?.map(c => c.id) || []
         
         let trackingData: any[] = []
         if (cycleIds.length > 0 && objs.length > 0) {
           const objIds = objs.map(o => o.id)
           const { data: tr } = await supabase.from('objective_tracking')
-            .select('objective_id, status_vs_target, followup_action, reasons_for_deviation')
+            .select('objective_id, status_vs_target, followup_action, reasons_for_deviation, evidence_of_achievement')
             .in('objective_id', objIds)
             .in('report_cycle_id', cycleIds)
           if (tr) trackingData = tr
         }
         
-        setData(objs.map(o => {
+        function calculateTargetPeriod(meta: any, endDate?: string, startDate?: string): string {
+          if (meta?.targetDate && /^Q[1-4]\s\d{4}$/.test(String(meta.targetDate).trim())) {
+            return String(meta.targetDate).trim()
+          }
+          if (meta?.period && /^Q[1-4]\s\d{4}$/.test(String(meta.period).trim())) {
+            return String(meta.period).trim()
+          }
+          const dStr = endDate || startDate
+          if (!dStr) return "Q1 2026"
+          const d = new Date(dStr)
+          if (isNaN(d.getTime())) return "Q1 2026"
+          const q = Math.ceil((d.getUTCMonth() + 1) / 3)
+          return `Q${q} ${d.getUTCFullYear()}`
+        }
+
+        const mapped = objs.map(o => {
+          const meta = (o.custom_metadata as any) || {}
           const track = trackingData.find((t: any) => t.objective_id === o.id)
-          const status = track ? track.status_vs_target : 'No Data'
-          const hasFollowupAction = Boolean(track?.followup_action && String(track.followup_action).trim().length > 0)
+          const targetPeriod = calculateTargetPeriod(meta, o.end_date, o.start_date)
+
+          // Process resolution
+          let processName = "General"
+          if (Array.isArray(meta.processNames) && meta.processNames.length > 0) {
+            processName = meta.processNames.join(", ")
+          } else if (meta.processName) {
+            processName = meta.processName
+          } else if (meta.process) {
+            processName = meta.process
+          }
+
+          // Q1 Status vs Target resolution
+          const rawStatus = track?.status_vs_target ? String(track.status_vs_target).trim() : null
+          let displayStatus = "No Review"
+          if (rawStatus) {
+            if (rawStatus === "Achieved") displayStatus = "Success"
+            else displayStatus = rawStatus
+          }
+
+          // Evidence indicator (only from evidence_of_achievement field)
+          const hasEvidence = Boolean(track?.evidence_of_achievement && String(track.evidence_of_achievement).trim().length > 0)
+
+          // Follow-up indicator
           const hasDeviation = Boolean(track?.reasons_for_deviation && String(track.reasons_for_deviation).trim().length > 0)
-          const isAchieved = status === 'Achieved'
-          const requiresAction = !isAchieved && (hasFollowupAction || hasDeviation || (status !== 'No Data' && status !== ''))
+          const hasFollowupAction = Boolean(track?.followup_action && String(track.followup_action).trim().length > 0)
+          const isSuccess = displayStatus === 'Success'
+          const followupRequired = hasFollowupAction || (!isSuccess && displayStatus !== 'No Review' && hasDeviation)
 
           return {
             id: o.id,
             name: o.objective_description,
             department_id: o.department_id,
-            process: (o.custom_metadata as any)?.processNames?.join(", ") || 'N/A',
-            author_id: (o.custom_metadata as any)?.author_id,
-            status,
-            targetDate: o.end_date || 'N/A',
-            followupAction: track?.followup_action || null,
+            process: processName,
+            author_id: meta.author_id,
+            targetPeriod,
+            rawStatus,
+            displayStatus,
+            hasEvidence,
+            evidenceLabel: hasEvidence ? "Provided" : "Not provided",
+            followupRequired,
+            followupLabel: followupRequired ? "Required" : "None",
             hasFollowupAction,
-            requiresAction,
+            requiresAction: followupRequired,
+            status: displayStatus,
+            targetDate: targetPeriod,
           }
-        }))
+        })
+
+        // Filter by the selected Quarter and Year
+        const periodFiltered = mapped.filter(item => {
+          if (activeQuarter !== 'ALL' && !item.targetPeriod.startsWith(activeQuarter)) {
+            return false
+          }
+          if (activeYear && !item.targetPeriod.includes(activeYear)) {
+            return false
+          }
+          return true
+        })
+
+        setData(periodFiltered)
       }
       setLoading(false)
     }
     fetchData()
   }, [employee, supabase, departmentFilter, activeQuarter, activeYear])
 
-  const filteredData = data.filter(d =>
-    d.name.toLowerCase().includes(search.toLowerCase()) || 
-    d.process.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredData = data.filter(d => {
+    if (search) {
+      const q = search.toLowerCase()
+      if (!d.name.toLowerCase().includes(q) && !d.process.toLowerCase().includes(q) && !d.targetPeriod.toLowerCase().includes(q)) {
+        return false
+      }
+    }
+    if (statusFilter !== 'ALL') {
+      if (d.displayStatus !== statusFilter && d.rawStatus !== statusFilter) {
+        return false
+      }
+    }
+    if (processFilter !== 'ALL' && d.process !== processFilter) {
+      return false
+    }
+    return true
+  })
 
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortKey) return 0
@@ -146,10 +217,12 @@ export default function ObjectivesPage() {
   }
 
   const exportColumns = [
-    { key: 'name', label: 'Objective Title' },
+    { key: 'name', label: 'Objective' },
     { key: 'process', label: 'Process' },
-    { key: 'targetDate', label: 'Target Date' },
-    { key: 'status', label: 'Status' }
+    { key: 'targetPeriod', label: 'Target Period' },
+    { key: 'displayStatus', label: 'Q1 Status vs Target' },
+    { key: 'evidenceLabel', label: 'Evidence' },
+    { key: 'followupLabel', label: 'Follow-up' },
   ]
 
   const handleSort = (key: string) => {
@@ -341,16 +414,17 @@ export default function ObjectivesPage() {
             <span className="text-sm text-muted-foreground font-medium">Filter</span>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="On Track">On Track</SelectItem>
+              <SelectItem value="Success">Success</SelectItem>
+              <SelectItem value="Partially Achieved">Partially Achieved</SelectItem>
               <SelectItem value="At Risk">At Risk</SelectItem>
               <SelectItem value="Off Track">Off Track</SelectItem>
-              <SelectItem value="Achieved">Achieved</SelectItem>
-              <SelectItem value="No Data">No Data</SelectItem>
+              <SelectItem value="Missed">Missed</SelectItem>
+              <SelectItem value="No Review">No Review</SelectItem>
             </SelectContent>
           </Select>
           <Select value={processFilter} onValueChange={setProcessFilter}>
@@ -371,13 +445,14 @@ export default function ObjectivesPage() {
         selectedIds={selectedIds} 
         data={filteredData} 
         columns={exportColumns} 
-        filename="objectives_export"
+        filename="objectives_export" 
         onClearSelection={() => setSelectedIds([])} 
       />
       <ScrollableTableWrapper>
         <Table className="min-w-full">
           <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
             <TableRow>
+              {/* 1. Selection checkbox */}
               <TableHead className="w-12 h-10 px-4">
                 <Checkbox 
                   checked={filteredData.length > 0 && selectedIds.length === filteredData.length} 
@@ -385,32 +460,52 @@ export default function ObjectivesPage() {
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
-                <div className="flex items-center gap-1">Objective {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
+
+              {/* 2. Objective */}
+              <TableHead className="h-10 cursor-pointer min-w-[280px]" onClick={() => handleSort('name')}>
+                <div className="flex items-center gap-1 font-semibold">Objective {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('process')}>
-                <div className="flex items-center gap-1">Process {sortKey === 'process' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
+
+              {/* 3. Process */}
+              <TableHead className="h-10 cursor-pointer min-w-[120px]" onClick={() => handleSort('process')}>
+                <div className="flex items-center gap-1 font-semibold">Process {sortKey === 'process' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('status')}>
-                <div className="flex items-center gap-1">Status {sortKey === 'status' && (sortDir === 'asc' ? <CaretUp /> : <CaretDown />)}</div>
+
+              {/* 4. Target Period */}
+              <TableHead className="h-10 cursor-pointer min-w-[110px]" onClick={() => handleSort('targetPeriod')}>
+                <div className="flex items-center gap-1 font-semibold">Target Period {sortKey === 'targetPeriod' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10 w-[50px]"></TableHead>
+
+              {/* 5. Q1 Status vs Target */}
+              <TableHead className="h-10 cursor-pointer min-w-[160px]" onClick={() => handleSort('displayStatus')}>
+                <div className="flex items-center gap-1 font-semibold">Q1 Status vs Target {sortKey === 'displayStatus' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 6. Evidence */}
+              <TableHead className="h-10 min-w-[120px] font-semibold">Evidence</TableHead>
+
+              {/* 7. Follow-up */}
+              <TableHead className="h-10 min-w-[110px] font-semibold">Follow-up</TableHead>
+
+              {/* 8. Action */}
+              <TableHead className="h-10 w-[90px] text-right pr-4 font-semibold">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton columns={4} rows={3} />
+              <TableSkeleton columns={8} rows={3} />
             ) : sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No objectives found.</TableCell>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No objectives found.</TableCell>
               </TableRow>
             ) : (
               sortedData.map((row) => (
                 <TableRow 
                   key={row.id} 
-                  className="cursor-pointer"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => router.push(`/department/objectives/${row.id}`)}
                 >
+                  {/* 1. Selection checkbox */}
                   <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
                       checked={selectedIds.includes(row.id as string)} 
@@ -418,23 +513,102 @@ export default function ObjectivesPage() {
                       aria-label="Select row"
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{row.name}</TableCell>
-                  <TableCell>{row.process}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{row.status}</Badge>
+
+                  {/* 2. Objective */}
+                  <TableCell className="font-medium max-w-[340px]">
+                    <span className="truncate block" title={row.name}>{row.name}</span>
                   </TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setObjToDelete(row)
-                      }}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
+
+                  {/* 3. Process */}
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {row.process}
+                  </TableCell>
+
+                  {/* 4. Target Period */}
+                  <TableCell className="text-sm tabular-nums whitespace-nowrap">
+                    {row.targetPeriod}
+                  </TableCell>
+
+                  {/* 5. Q1 Status vs Target */}
+                  <TableCell className="whitespace-nowrap">
+                    {row.displayStatus === 'No Review' ? (
+                      <Badge variant="outline" className="bg-muted/40 text-muted-foreground border-border font-normal text-xs">
+                        No Review
+                      </Badge>
+                    ) : row.displayStatus === 'Success' ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 font-semibold text-xs">
+                        Success
+                      </Badge>
+                    ) : row.displayStatus === 'Partially Achieved' ? (
+                      <Badge className="bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800 font-semibold text-xs">
+                        Partially Achieved
+                      </Badge>
+                    ) : row.displayStatus === 'At Risk' ? (
+                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 font-semibold text-xs">
+                        At Risk
+                      </Badge>
+                    ) : row.displayStatus === 'Off Track' ? (
+                      <Badge className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800 font-semibold text-xs">
+                        Off Track
+                      </Badge>
+                    ) : row.displayStatus === 'Missed' ? (
+                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 font-semibold text-xs">
+                        Missed
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="font-semibold text-xs">
+                        {row.displayStatus}
+                      </Badge>
+                    )}
+                  </TableCell>
+
+                  {/* 6. Evidence */}
+                  <TableCell className="whitespace-nowrap">
+                    {row.hasEvidence ? (
+                      <span className="inline-flex items-center text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        ✓ Provided
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center text-xs text-muted-foreground">
+                        — Not provided
+                      </span>
+                    )}
+                  </TableCell>
+
+                  {/* 7. Follow-up */}
+                  <TableCell className="whitespace-nowrap">
+                    {row.followupRequired ? (
+                      <span className="inline-flex items-center text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        ⚠ Required
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center text-xs text-muted-foreground">
+                        — None
+                      </span>
+                    )}
+                  </TableCell>
+
+                  {/* 8. Action */}
+                  <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 px-2.5 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => router.push(`/department/objectives/${row.id}`)}
+                      >
+                        View
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        title="Delete Objective"
+                        onClick={() => setObjToDelete(row)}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
