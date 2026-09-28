@@ -1,22 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter, useSearchParams } from "next/navigation"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Plus, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
-import { TableSkeleton } from "@/components/shared/TableSkeleton"
-import { Checkbox } from "@/components/ui/checkbox"
-import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
-
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Trash, CaretUp, CaretDown, CaretRight, Pulse, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react";
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar";
 import {
   Table,
   TableBody,
@@ -24,169 +23,352 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
+import { useEmployee } from "@/lib/employee-context";
+import { DepartmentFilter } from "@/components/shared/DepartmentFilter";
 
-import { KpiFormData } from "@/components/forms/KpiForm"
-
-import { useEmployee } from "@/lib/employee-context"
-
-import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
+interface KpiRow {
+  id: string;
+  name: string;
+  processName: string;
+  responsibility: string;
+  target: string;
+  actual: string;
+  achievementPercentage: string;
+  status: "Success" | "Partially Achieved" | "At Risk" | "Off Track" | "Missed" | "Pending";
+  isAchieved: boolean;
+  justification: string;
+}
 
 export default function KPITrackingPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const employee = useEmployee()
-  const [data, setData] = useState<any[] /* eslint-disable-line @typescript-eslint/no-explicit-any */ >([])
-  const [loading, setLoading] = useState(true)
-  const [kpiToDelete, setKpiToDelete] = useState<any /* eslint-disable-line @typescript-eslint/no-explicit-any */ | null>(null)
-  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL')
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL")
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const employee = useEmployee();
+  const [data, setData] = useState<KpiRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [kpiToDelete, setKpiToDelete] = useState<KpiRow | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL");
   
   // Reporting Period
-  const currentDate = new Date()
-  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
-  const actualYear = currentDate.getFullYear().toString()
-  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
-  const [activeYear, setActiveYear] = useState(actualYear)
+  const currentDate = new Date();
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`;
+  const actualYear = currentDate.getFullYear().toString();
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter);
+  const [activeYear, setActiveYear] = useState(actualYear);
 
-  const supabase = createClient()
+  const supabase = createClient();
+
   useEffect(() => {
     async function fetchData() {
-      if (!employee || departmentFilter === null) return
+      if (!employee || departmentFilter === null) return;
+      setLoading(true);
 
-      let query = supabase
+      const { data: rawKpis, error: kpiErr } = await supabase
         .from('kpi_definitions')
         .select(`
           id,
           kpi_name,
           target_value,
           unit,
-          processes!inner (
+          custom_metadata,
+          processes (
+            id,
             process_name,
             department_id
           )
-        `)
+        `);
 
-      if (departmentFilter !== 'ALL') {
-        query = query.eq('processes.department_id', departmentFilter)
+      if (kpiErr || !rawKpis) {
+        console.error("Error fetching KPIs:", kpiErr);
+        setLoading(false);
+        return;
       }
-      
-      const { data: kpis } = await query
-      
-      if (kpis) {
-        // Query measurements for the active period
-        const { data: cycles } = await supabase.from('report_cycles').select('id')
-          .like('reporting_period', activeQuarter === 'ALL' ? `%${activeYear}` : `${activeQuarter} ${activeYear}`)
-        const cycleIds = cycles?.map(c => c.id) || []
 
-        let measurements: any[] = []
-        if (cycleIds.length > 0 && kpis.length > 0) {
-          const kpiIds = kpis.map((k: any) => k.id)
-          const { data: mData } = await supabase.from('kpi_measurements')
-            .select('kpi_id, actual_value, status, justification_for_deviation')
-            .in('kpi_id', kpiIds)
-            .in('report_cycle_id', cycleIds)
-          if (mData) measurements = mData
+      let kpis = rawKpis;
+      if (departmentFilter !== 'ALL') {
+        kpis = kpis.filter((k: any) => {
+          const deptId = k.processes?.department_id || k.custom_metadata?.departmentId || k.custom_metadata?.department_id;
+          return !deptId || deptId === departmentFilter;
+        });
+      }
+
+      // Query measurements for the active period
+      const periodPattern = activeQuarter === 'ALL' 
+        ? (activeYear === 'ALL' ? '%' : `%${activeYear}`)
+        : (activeYear === 'ALL' ? `${activeQuarter}%` : `${activeQuarter} ${activeYear}`);
+
+      const { data: cycles } = await supabase
+        .from('report_cycles')
+        .select('id, reporting_period')
+        .like('reporting_period', periodPattern);
+
+      const cycleIds = cycles?.map(c => c.id) || [];
+
+      let measurements: any[] = [];
+      if (cycleIds.length > 0 && kpis.length > 0) {
+        const kpiIds = kpis.map((k: any) => k.id);
+        const { data: mData } = await supabase
+          .from('kpi_measurements')
+          .select('kpi_id, actual_value, status, justification_for_deviation, report_cycle_id, created_at')
+          .in('kpi_id', kpiIds)
+          .in('report_cycle_id', cycleIds);
+        if (mData) measurements = mData;
+      } else if (kpis.length > 0) {
+        // Fallback to recent measurements if no report cycle matches
+        const kpiIds = kpis.map((k: any) => k.id);
+        const { data: mData } = await supabase
+          .from('kpi_measurements')
+          .select('kpi_id, actual_value, status, justification_for_deviation, report_cycle_id, created_at')
+          .in('kpi_id', kpiIds)
+          .order('created_at', { ascending: false });
+        if (mData) measurements = mData;
+      }
+
+      const mapped: KpiRow[] = kpis.map((k: any) => {
+        const m = measurements.find((meas: any) => meas.kpi_id === k.id);
+        
+        // 1. Responsibility
+        const responsibility = k.custom_metadata?.responsibility || 
+                               k.custom_metadata?.responsibleEntity || 
+                               k.custom_metadata?.owner || 
+                               "Unassigned";
+
+        // 2. Target formatting
+        let targetDisplay = String(k.target_value ?? "").trim();
+        const unit = k.unit || k.custom_metadata?.unit || "";
+        if (unit && !targetDisplay.toLowerCase().includes(unit.toLowerCase())) {
+          targetDisplay = `${targetDisplay} ${unit}`.trim();
+        }
+        if (!targetDisplay) targetDisplay = "—";
+
+        // 3. Actual formatting
+        const rawActual = m?.actual_value ?? k.custom_metadata?.actual ?? null;
+        const actualStr = rawActual !== null && rawActual !== undefined ? String(rawActual).trim() : "";
+        const hasActual = actualStr !== "" && actualStr !== "-" && actualStr !== "null" && actualStr !== "undefined";
+        const actualDisplay = hasActual ? actualStr : "—";
+
+        // 4. Direction & Calculation Numbers
+        const parseNum = (val: string) => {
+          const cleaned = val.replace(/[^0-9.-]/g, "");
+          const num = parseFloat(cleaned);
+          return isNaN(num) ? null : num;
+        };
+
+        const targetNum = parseNum(k.target_value ?? "");
+        const actualNum = hasActual ? parseNum(actualStr) : null;
+        const direction = (k.custom_metadata?.direction || k.custom_metadata?.measurement_direction || "").toUpperCase();
+        const rawStatus = (m?.status || k.custom_metadata?.status || "").trim();
+        const storedPct = m?.achievement_percentage ?? k.custom_metadata?.achievementPercentage ?? null;
+
+        let achievementPct = "—";
+        let computedStatus: KpiRow["status"] = "Pending";
+        let isAchieved = false;
+
+        if (hasActual) {
+          // Determine Achievement %
+          if (storedPct !== null && storedPct !== undefined && String(storedPct).trim() !== "") {
+            achievementPct = `${String(storedPct).replace('%', '').trim()}%`;
+          } else if (actualNum !== null && targetNum !== null && targetNum !== 0) {
+            if (direction === "LOWER_IS_BETTER") {
+              if (actualNum <= targetNum) {
+                achievementPct = "100%";
+              } else {
+                const ratio = Math.max(0, Math.round((1 - (actualNum - targetNum) / targetNum) * 100));
+                achievementPct = `${ratio}%`;
+              }
+            } else {
+              const ratio = Math.max(0, Math.round((actualNum / targetNum) * 100));
+              achievementPct = `${ratio}%`;
+            }
+          } else if (targetNum === 0 && actualNum !== null) {
+            achievementPct = actualNum === 0 ? "100%" : "0%";
+          }
+
+          // Determine Status
+          const statusLower = rawStatus.toLowerCase();
+          if (statusLower === "achieved" || statusLower === "success") {
+            computedStatus = "Success";
+            isAchieved = true;
+          } else if (statusLower === "partially achieved" || statusLower === "partial") {
+            computedStatus = "Partially Achieved";
+          } else if (statusLower === "at risk") {
+            computedStatus = "At Risk";
+          } else if (statusLower === "off track") {
+            computedStatus = "Off Track";
+          } else if (statusLower === "missed" || statusLower === "deviated" || statusLower === "below target") {
+            computedStatus = "Missed";
+          } else {
+            // Infer status from numerical performance if status is not explicitly set
+            if (targetNum !== null && actualNum !== null) {
+              if (direction === "LOWER_IS_BETTER") {
+                if (actualNum <= targetNum) {
+                  computedStatus = "Success";
+                  isAchieved = true;
+                } else {
+                  computedStatus = "Missed";
+                }
+              } else if (targetNum === 0) {
+                if (actualNum === 0) {
+                  computedStatus = "Success";
+                  isAchieved = true;
+                } else {
+                  computedStatus = "Missed";
+                }
+              } else {
+                if (actualNum >= targetNum) {
+                  computedStatus = "Success";
+                  isAchieved = true;
+                } else if (actualNum >= targetNum * 0.8) {
+                  computedStatus = "Partially Achieved";
+                } else {
+                  computedStatus = "Missed";
+                }
+              }
+            } else {
+              computedStatus = "Pending";
+            }
+          }
+        } else {
+          computedStatus = "Pending";
+          achievementPct = "—";
+          isAchieved = false;
         }
 
-        const mapped = kpis.map((k: any) => {
-          const m = measurements.find((meas: any) => meas.kpi_id === k.id)
-          const actualStr = String(m?.actual_value || '').trim()
-          const hasActual = actualStr !== '' && actualStr !== '-' && actualStr !== 'null'
-          const isAchieved = Boolean(hasActual && m?.status === 'Achieved')
-          return {
-            id: k.id,
-            name: k.kpi_name,
-            processName: k.processes?.process_name || "Department Metrics",
-            responsibility: "Dept Head",
-            target: `${k.target_value}${k.unit ? ` ${k.unit}` : ''}`,
-            actual: m?.actual_value || "",
-            achievementPercentage: isAchieved ? "100" : (hasActual ? "50" : ""),
-            status: isAchieved ? "Achieved" : (m?.status || "Pending"),
-            isAchieved,
-            justification: m?.justification_for_deviation || ""
-          }
-        })
-        setData(mapped)
-      }
-      setLoading(false)
-    }
-    fetchData()
-  }, [supabase, employee, departmentFilter, activeQuarter, activeYear])
+        // 5. Remark / Justification
+        const justification = m?.justification_for_deviation || 
+                              k.custom_metadata?.justification || 
+                              k.custom_metadata?.remark || 
+                              "";
+        const remarkDisplay = justification.trim() ? justification.trim() : "—";
 
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+        // 6. Process name
+        const procName = k.processes?.process_name?.trim() || "Unassigned Process";
+
+        return {
+          id: k.id,
+          name: k.kpi_name,
+          processName: procName,
+          responsibility,
+          target: targetDisplay,
+          actual: actualDisplay,
+          achievementPercentage: achievementPct,
+          status: computedStatus,
+          isAchieved,
+          justification: remarkDisplay
+        };
+      });
+
+      setData(mapped);
+      setLoading(false);
+    }
+    fetchData();
+  }, [supabase, employee, departmentFilter, activeQuarter, activeYear]);
+
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
-  const toggleAll = (checked: boolean) => {
-    if (checked) setSelectedIds(sortedData.map(d => d.id))
-    else setSelectedIds([])
-  }
-  const toggleOne = (id: string, checked: boolean) => {
-    if (checked) setSelectedIds(prev => [...prev, id])
-    else setSelectedIds(prev => prev.filter(x => x !== id))
-  }
-
-  const exportColumns = [
-    { key: 'name', label: 'KPI Name' },
-    { key: 'processName', label: 'Process' },
-    { key: 'target', label: 'Target' },
-    { key: 'actual', label: 'Actual' },
-    { key: 'status', label: 'Status' }
-  ]
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
-
-  const handleDelete = () => {
-    if (kpiToDelete) {
-      setData(data.filter(kpi => kpi.id !== kpiToDelete.id))
-      toast.success(`"${kpiToDelete.name}" was permanently deleted.`)
-      setKpiToDelete(null)
-    }
-  }
-
-  // A KPI is "locked" once it has an actual value and isn't pending
-  const isLocked = (kpi: KpiFormData) => !!(kpi.actual?.trim()) && kpi.status !== "Pending"
-
   // Collapsible process groups — all expanded by default
-  const [collapsedProcesses, setCollapsedProcesses] = useState<Set<string>>(new Set())
+  const [collapsedProcesses, setCollapsedProcesses] = useState<Set<string>>(new Set());
 
   const toggleProcess = (processName: string) => {
     setCollapsedProcesses(prev => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(processName)) {
-        next.delete(processName)
+        next.delete(processName);
       } else {
-        next.add(processName)
+        next.add(processName);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
+  const toggleAll = (checked: boolean) => {
+    if (checked) setSelectedIds(sortedData.map(d => d.id));
+    else setSelectedIds([]);
+  };
+
+  const toggleOne = (id: string, checked: boolean) => {
+    if (checked) setSelectedIds(prev => [...prev, id]);
+    else setSelectedIds(prev => prev.filter(x => x !== id));
+  };
+
+  const toggleGroupSelection = (groupKpis: KpiRow[], checked: boolean) => {
+    const groupIds = groupKpis.map(k => k.id);
+    if (checked) {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...groupIds])));
+    } else {
+      setSelectedIds(prev => prev.filter(id => !groupIds.includes(id)));
+    }
+  };
+
+  const exportColumns = [
+    { key: 'name', label: 'KPI / Metric' },
+    { key: 'processName', label: 'Process' },
+    { key: 'responsibility', label: 'Responsibility' },
+    { key: 'target', label: 'Target' },
+    { key: 'actual', label: 'Actual' },
+    { key: 'achievementPercentage', label: 'Achievement %' },
+    { key: 'status', label: 'Status' },
+    { key: 'justification', label: 'Remark / Justification' }
+  ];
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const handleDelete = () => {
+    if (kpiToDelete) {
+      setData(data.filter(kpi => kpi.id !== kpiToDelete.id));
+      toast.success(`"${kpiToDelete.name}" was permanently deleted.`);
+      setKpiToDelete(null);
+    }
+  };
+
+  // Filter KPI records before grouping
   const filteredData = data.filter(d => {
     if (statusFilter !== "ALL" && d.status !== statusFilter) return false;
-    return d.name.toLowerCase().includes(search.toLowerCase()) || 
-           d.process.toLowerCase().includes(search.toLowerCase());
-  })
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const match = 
+        d.name.toLowerCase().includes(q) ||
+        d.processName.toLowerCase().includes(q) ||
+        d.responsibility.toLowerCase().includes(q) ||
+        d.status.toLowerCase().includes(q) ||
+        d.justification.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    return true;
+  });
 
+  // Sort KPI records
   const sortedData = [...filteredData].sort((a, b) => {
-    if (!sortKey) return 0
-    let aVal = a[sortKey]
-    let bVal = b[sortKey]
-    if (typeof aVal === 'string') aVal = aVal.toLowerCase()
-    if (typeof bVal === 'string') bVal = bVal.toLowerCase()
-    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
-    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
-    return 0
-  })
+    if (!sortKey) return 0;
+    let aVal = (a as any)[sortKey];
+    let bVal = (b as any)[sortKey];
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Group KPIs by linked Process
+  const processGroups = new Map<string, KpiRow[]>();
+  for (const kpi of sortedData) {
+    const proc = kpi.processName || "Unassigned Process";
+    if (!processGroups.has(proc)) {
+      processGroups.set(proc, []);
+    }
+    processGroups.get(proc)!.push(kpi);
+  }
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
@@ -205,25 +387,26 @@ export default function KPITrackingPage() {
               />
             )}
             <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
-            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["ALL", "Q1","Q2","Q3","Q4"].map((q) => (
-                <SelectItem key={q} value={q}>{q}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
-            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
-                <SelectItem key={y} value={y}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger className="w-[85px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["ALL", "Q1", "Q2", "Q3", "Q4"].map((q) => (
+                  <SelectItem key={q} value={q}>{q === "ALL" ? "All Qs" : q}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+              <SelectTrigger className="w-[95px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Years</SelectItem>
+                {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               className="bg-primary hover:bg-primary/90 text-white gap-2 h-9"
               onClick={() => router.push("/department/kpis/new")}
@@ -319,11 +502,11 @@ export default function KPITrackingPage() {
                 </CardContent>
               </Card>
             </div>
-          )
+          );
         })()}
       </div>
 
-      {/* ── KPI Data Table ── */}
+      {/* ── Search & Filter Controls ── */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mt-2">
         <div className="flex items-center gap-2 w-full max-w-sm relative">
           <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
@@ -331,7 +514,7 @@ export default function KPITrackingPage() {
             placeholder="Search KPIs..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 w-full"
+            className="pl-9 w-full h-9 text-sm"
           />
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -340,15 +523,17 @@ export default function KPITrackingPage() {
             <span className="text-sm text-muted-foreground font-medium">Filter</span>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Status" />
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All</SelectItem>
-              <SelectItem value="Achieved">Achieved</SelectItem>
-              <SelectItem value="Deviated">Deviated</SelectItem>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="Success">Success</SelectItem>
+              <SelectItem value="Partially Achieved">Partially Achieved</SelectItem>
+              <SelectItem value="At Risk">At Risk</SelectItem>
+              <SelectItem value="Off Track">Off Track</SelectItem>
+              <SelectItem value="Missed">Missed</SelectItem>
               <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Not Measured">Not Measured</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -361,10 +546,13 @@ export default function KPITrackingPage() {
         filename="kpis_export"
         onClearSelection={() => setSelectedIds([])} 
       />
+
+      {/* ── KPI Table Grouped by Process ── */}
       <ScrollableTableWrapper>
-        <Table>
-          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
+        <Table className="min-w-full">
+          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 border-b">
             <TableRow>
+              {/* 1. Selection checkbox */}
               <TableHead className="w-12 h-10 px-4">
                 <Checkbox 
                   checked={sortedData.length > 0 && selectedIds.length === sortedData.length} 
@@ -372,133 +560,202 @@ export default function KPITrackingPage() {
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('name')}>
-                <div className="flex items-center gap-1">Metric {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+
+              {/* 2. KPI / Metric */}
+              <TableHead className="h-10 cursor-pointer min-w-[240px]" onClick={() => handleSort('name')}>
+                <div className="flex items-center gap-1 font-semibold">KPI / Metric {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10">Responsibility</TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('target')}>
-                <div className="flex items-center gap-1">Target {sortKey === 'target' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+
+              {/* 3. Responsibility */}
+              <TableHead className="h-10 cursor-pointer min-w-[130px]" onClick={() => handleSort('responsibility')}>
+                <div className="flex items-center gap-1 font-semibold">Responsibility {sortKey === 'responsibility' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('actual')}>
-                <div className="flex items-center gap-1">Actual {sortKey === 'actual' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+
+              {/* 4. Target */}
+              <TableHead className="h-10 cursor-pointer min-w-[100px]" onClick={() => handleSort('target')}>
+                <div className="flex items-center gap-1 font-semibold">Target {sortKey === 'target' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('achieved')}>
-                <div className="flex items-center gap-1">Achiev. % {sortKey === 'achieved' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+
+              {/* 5. Actual */}
+              <TableHead className="h-10 cursor-pointer min-w-[100px]" onClick={() => handleSort('actual')}>
+                <div className="flex items-center gap-1 font-semibold">Actual {sortKey === 'actual' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10 cursor-pointer" onClick={() => handleSort('status')}>
-                <div className="flex items-center gap-1">Status {sortKey === 'status' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+
+              {/* 6. Achievement % */}
+              <TableHead className="h-10 cursor-pointer min-w-[120px]" onClick={() => handleSort('achievementPercentage')}>
+                <div className="flex items-center gap-1 font-semibold">Achievement % {sortKey === 'achievementPercentage' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
               </TableHead>
-              <TableHead className="h-10">Remark/Justification</TableHead>
-              <TableHead className="h-10 w-[50px]"></TableHead>
+
+              {/* 7. Status */}
+              <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('status')}>
+                <div className="flex items-center gap-1 font-semibold">Status {sortKey === 'status' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 8. Remark / Justification */}
+              <TableHead className="h-10 min-w-[180px] font-semibold">Remark / Justification</TableHead>
+
+              {/* 9. Action */}
+              <TableHead className="h-10 w-[90px] text-right pr-4 font-semibold">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton columns={5} rows={3} />
-            ) : data.length === 0 ? (
+              <TableSkeleton columns={9} rows={3} />
+            ) : sortedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
-                  No KPIs found.
+                  No KPIs found for the selected period.
                 </TableCell>
               </TableRow>
-            ) : (() => {
-              // Group KPIs by processName, preserving insertion order
-              const groups = sortedData.reduce<Record<string, KpiFormData[]>>((acc, kpi) => {
-                const key = kpi.processName || "General"
-                if (!acc[key]) acc[key] = []
-                acc[key].push(kpi)
-                return acc
-              }, {})
+            ) : (
+              Array.from(processGroups.entries()).map(([processName, groupKpis]) => {
+                const isCollapsed = collapsedProcesses.has(processName);
+                const groupIds = groupKpis.map(k => k.id);
+                const selectedInGroup = groupIds.filter(id => selectedIds.includes(id)).length;
+                const isGroupAllSelected = groupIds.length > 0 && selectedInGroup === groupIds.length;
+                const isGroupPartiallySelected = selectedInGroup > 0 && selectedInGroup < groupIds.length;
 
-              return Object.entries(groups).flatMap(([processName, kpis]) => {
-                const isCollapsed = collapsedProcesses.has(processName)
                 return [
-                  // ── Process Section Header Row (clickable toggle) ──
+                  /* ── Process Group Header Row (Toggle & Group Checkbox) ── */
                   <TableRow
                     key={`group-${processName}`}
-                    className="bg-muted/80 dark:bg-zinc-900/60 hover:bg-slate-100/80 dark:hover:bg-zinc-900/80 cursor-pointer select-none"
+                    className="bg-muted/80 dark:bg-zinc-900/80 hover:bg-muted dark:hover:bg-zinc-900 cursor-pointer select-none border-t border-b transition-colors"
                     onClick={() => toggleProcess(processName)}
                   >
-                    <TableCell colSpan={9} className="py-2 px-4">
-                      <div className="flex items-center gap-2">
-                        {isCollapsed
-                          ? <CaretRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          : <CaretDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        }
-                        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground dark:text-zinc-400">
-                          {processName}
-                        </span>
-                        <span className="text-xs text-muted-foreground dark:text-zinc-500 ml-1">
-                          ({kpis.length} {kpis.length === 1 ? "metric" : "metrics"})
-                        </span>
+                    <TableCell colSpan={9} className="py-2.5 px-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={isGroupAllSelected ? true : isGroupPartiallySelected ? "indeterminate" : false}
+                              onCheckedChange={(checked) => toggleGroupSelection(groupKpis, !!checked)}
+                              aria-label={`Select all KPIs in ${processName}`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? (
+                              <CaretRight className="h-4 w-4 text-foreground/70" />
+                            ) : (
+                              <CaretDown className="h-4 w-4 text-foreground/70" />
+                            )}
+                            <span className="text-xs font-bold tracking-wide uppercase text-foreground">
+                              {processName}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-normal">
+                              ({groupKpis.length} {groupKpis.length === 1 ? "KPI" : "KPIs"})
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>,
-                  ...(!isCollapsed ? kpis.map((row) => {
-                  const locked = isLocked(row)
-                  return (
+
+                  /* ── Individual KPI Rows (Child Rows under Process Group) ── */
+                  ...(!isCollapsed ? groupKpis.map((row) => (
                     <TableRow
                       key={row.id}
                       onClick={() => router.push(`/department/kpis/${row.id}`)}
-                      className={`transition-colors cursor-pointer ${locked ? "bg-muted/60 dark:bg-zinc-900/30 hover:bg-slate-100/60 dark:hover:bg-zinc-900/50 opacity-80" : "hover:bg-muted dark:hover:bg-slate-900/50"}`}
+                      className="hover:bg-muted/50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors"
                     >
+                      {/* 1. Selection checkbox */}
                       <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
                         <Checkbox 
-                          checked={selectedIds.includes(row.id as string)} 
-                          onCheckedChange={(checked) => toggleOne(row.id as string, checked as boolean)}
+                          checked={selectedIds.includes(row.id)} 
+                          onCheckedChange={(checked) => toggleOne(row.id, checked as boolean)}
                           aria-label="Select row"
                         />
                       </TableCell>
-                      <TableCell className="font-medium max-w-[250px] pl-6">
-                        <div className="flex items-center gap-2 truncate" title={row.name}>
-                          {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                          <span className="truncate">{row.name}</span>
-                        </div>
+
+                      {/* 2. KPI / Metric */}
+                      <TableCell className="font-medium max-w-[260px]">
+                        <span className="truncate block" title={row.name}>
+                          {row.name}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm max-w-[150px] truncate" title={row.responsibility}>
-                        {row.responsibility || "-"}
+
+                      {/* 3. Responsibility */}
+                      <TableCell className="text-muted-foreground text-sm max-w-[140px] truncate" title={row.responsibility}>
+                        {row.responsibility}
                       </TableCell>
-                      <TableCell>{row.target}</TableCell>
-                      <TableCell className="font-semibold">{row.actual || "-"}</TableCell>
-                      <TableCell className="text-sm font-medium">{row.achievementPercentage || "-"}</TableCell>
-                      <TableCell>
-                        {row.status === "Achieved" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-400">Achieved</Badge>
-                        ) : row.status === "Deviated" ? (
-                          <Badge className="bg-destructive/20 text-rose-800 hover:bg-destructive/20 dark:bg-rose-900/40 dark:text-rose-400">Deviated</Badge>
+
+                      {/* 4. Target */}
+                      <TableCell className="text-sm tabular-nums whitespace-nowrap">
+                        {row.target}
+                      </TableCell>
+
+                      {/* 5. Actual */}
+                      <TableCell className="font-semibold text-sm tabular-nums whitespace-nowrap">
+                        {row.actual}
+                      </TableCell>
+
+                      {/* 6. Achievement % */}
+                      <TableCell className="text-sm tabular-nums font-medium whitespace-nowrap">
+                        {row.achievementPercentage}
+                      </TableCell>
+
+                      {/* 7. Status */}
+                      <TableCell className="whitespace-nowrap">
+                        {row.status === "Success" ? (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 font-semibold text-xs">
+                            Success
+                          </Badge>
+                        ) : row.status === "Partially Achieved" ? (
+                          <Badge className="bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800 font-semibold text-xs">
+                            Partially Achieved
+                          </Badge>
+                        ) : row.status === "At Risk" ? (
+                          <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 font-semibold text-xs">
+                            At Risk
+                          </Badge>
+                        ) : row.status === "Off Track" ? (
+                          <Badge className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800 font-semibold text-xs">
+                            Off Track
+                          </Badge>
+                        ) : row.status === "Missed" ? (
+                          <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 font-semibold text-xs">
+                            Missed
+                          </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-muted-foreground">Pending</Badge>
+                          <Badge variant="outline" className="bg-muted/40 text-muted-foreground border-border font-normal text-xs">
+                            Pending
+                          </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate" title={row.justification}>
-                        {row.justification || "-"}
+
+                      {/* 8. Remark / Justification */}
+                      <TableCell className="text-muted-foreground text-xs max-w-[200px]">
+                        <span className="truncate block" title={row.justification}>
+                          {row.justification}
+                        </span>
                       </TableCell>
-                      <TableCell>
-                        {locked ? (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground dark:text-zinc-500 font-medium px-1">
-                            <Lock className="h-3 w-3" />
-                            <span>Submitted</span>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-rose-950/50 transition-colors z-10 relative"
+
+                      {/* 9. Action */}
+                      <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2.5 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => router.push(`/department/kpis/${row.id}`)}
+                          >
+                            View
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                             title="Delete KPI"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setKpiToDelete(row);
-                            }}
+                            onClick={() => setKpiToDelete(row)}
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
-                        )}
+                        </div>
                       </TableCell>
                     </TableRow>
-                  )
-                }) : [])
-              ]})
-            })()}
+                  )) : [])
+                ];
+              })
+            )}
           </TableBody>
         </Table>
       </ScrollableTableWrapper>
@@ -523,5 +780,5 @@ export default function KPITrackingPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
