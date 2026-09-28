@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { ArrowLeft, CircleNotch } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
-import RiskForm, { RiskFormData, AvailableObjective } from "@/components/forms/RiskForm"
+import RiskForm, { RiskFormData, AvailableObjective, AvailableEmployee, ProcessItem } from "@/components/forms/RiskForm"
 import { createClient } from "@/lib/supabase/client"
 import { useEmployee } from "@/lib/employee-context"
 
@@ -16,29 +16,65 @@ export default function CreateRiskPage() {
   const supabase = createClient()
   const employee = useEmployee()
 
-  const [processes, setProcesses] = useState<{ id: string; name: string }[]>([])
+  const [processes, setProcesses] = useState<ProcessItem[]>([])
+  const [employees, setEmployees] = useState<AvailableEmployee[]>([])
   const [availableObjectives, setAvailableObjectives] = useState<AvailableObjective[]>([])
   const [loadingLookups, setLoadingLookups] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     async function fetchLookups() {
-      // Fetch risk_procedures (these are the "processes" for the Risk form)
+      // 1. Fetch risk_procedures & processes (combined for comprehensive selection)
       const { data: procRows } = await supabase
         .from("risk_procedures")
         .select("id, procedure_name")
         .order("procedure_name")
+
+      const { data: generalProcRows } = await supabase
+        .from("processes")
+        .select("id, process_name")
+        .order("process_name")
+
+      const processMap = new Map<string, ProcessItem>()
       if (procRows) {
-        setProcesses(procRows.map((p: any) => ({ id: p.id, name: p.procedure_name })))
+        procRows.forEach((p: any) => {
+          processMap.set(p.id, { id: p.id, name: p.procedure_name })
+        })
+      }
+      if (generalProcRows) {
+        generalProcRows.forEach((p: any) => {
+          if (!processMap.has(p.id)) {
+            processMap.set(p.id, { id: p.id, name: p.process_name })
+          }
+        })
+      }
+      setProcesses(Array.from(processMap.values()))
+
+      // 2. Fetch employees for the Risk Owner picker
+      const { data: empRows } = await supabase
+        .from("employees")
+        .select("id, firstname, lastname, role")
+        .order("firstname")
+
+      if (empRows) {
+        setEmployees(
+          empRows.map((e: any) => ({
+            id: e.id,
+            name: `${e.firstname} ${e.lastname}`.trim(),
+            role: e.role,
+          }))
+        )
       }
 
-      // Fetch objective names to populate the "Linked Objective" picker
+      // 3. Fetch objectives for the Linked Objective picker
       const { data: objRows } = await supabase
         .from("objective_definitions")
         .select("id, objective_description, departments ( department_name )")
+
       if (objRows) {
         setAvailableObjectives(
           objRows.map((o: any) => ({
+            id: o.id,
             name: o.objective_description,
             processName: o.departments?.department_name ?? "General",
           }))
@@ -48,27 +84,33 @@ export default function CreateRiskPage() {
       setLoadingLookups(false)
     }
     fetchLookups()
-  }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase])
 
   const handleCreate = async (data: RiskFormData) => {
     setSaving(true)
 
-    // Resolve the procedure_id from the selected process name (optional)
-    const proc = data.processName ? processes.find((p) => p.name === data.processName) : null
+    const ownerName = employees.find((e) => e.id === data.ownerId)?.name || data.ownerName || ""
 
     const { error } = await supabase.from("risk_definitions").insert({
-      procedure_id: proc?.id || null,
-      owner_id: employee?.id || null,
+      procedure_id: data.processId || null,
+      owner_id: data.ownerId || employee?.id || null,
       risk_statement: data.title,
       affected_assets: data.description,
-      threat: data.description,              // both map to description until form is expanded
+      threat: data.description,
       vulnerability: data.description,
-      treatment_solution: data.mitigationStrategy,
+      treatment_solution: data.riskResponse || data.mitigationStrategy || "Mitigate",
       baseline_likelihood: data.likelihood,
       baseline_severity: data.severity,
       custom_metadata: {
+        description: data.description,
+        processId: data.processId,
+        processName: data.processName,
+        ownerId: data.ownerId,
+        ownerName: ownerName,
         linkedObjective: data.linkedObjective,
-        customFields: data.customFields ?? [],
+        riskResponse: data.riskResponse || "Mitigate",
+        riskRating: data.riskRating,
+        actionStatus: "Pending",
       },
       is_active: true,
     })
@@ -76,13 +118,8 @@ export default function CreateRiskPage() {
     setSaving(false)
 
     if (error) {
-      console.error("Supabase INSERT error:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      })
-      toast.error(`Failed to save: ${error.message || error.details || 'Database insert failed'}`)
+      console.error("Supabase INSERT error:", error)
+      toast.error(`Failed to save: ${error.message || 'Database insert failed'}`)
       return
     }
 
@@ -112,10 +149,11 @@ export default function CreateRiskPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-zinc-950 border border-border dark:border-zinc-800 rounded-xl p-6 shadow-sm">
+      <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
         <RiskForm
           mode="create"
-          processes={processes.map((p) => p.name)}
+          processes={processes}
+          employees={employees}
           availableObjectives={availableObjectives}
           onSubmit={handleCreate}
           onCancel={() => router.push("/department/risks")}
@@ -123,11 +161,10 @@ export default function CreateRiskPage() {
         {saving && (
           <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <CircleNotch className="h-4 w-4 animate-spin" />
-            Saving to database...
+            Saving risk to database...
           </div>
         )}
       </div>
     </div>
   )
 }
-

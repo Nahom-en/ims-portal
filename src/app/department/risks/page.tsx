@@ -1,21 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
-import { TableSkeleton } from "@/components/shared/TableSkeleton"
-import { Checkbox } from "@/components/ui/checkbox"
-import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-import { useState, useEffect, useMemo } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter, useSearchParams } from "next/navigation"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Plus, Trash, Lock, CaretDown, CaretRight, Warning, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
-
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Trash, CaretDown, CaretRight, CaretUp, Warning, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react";
 import {
   Table,
   TableBody,
@@ -23,246 +22,414 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
+import { useEmployee } from "@/lib/employee-context";
+import { DepartmentFilter } from "@/components/shared/DepartmentFilter";
 
-import { RiskFormData, RiskStatus } from "@/components/forms/RiskForm"
-
-// ── Score Helpers ──
-
-function getScoreColor(score: number) {
-  if (score >= 15) return { bg: "bg-destructive/20 dark:bg-rose-900/40", text: "text-rose-800 dark:text-rose-400", label: "Critical" }
-  if (score >= 5)  return { bg: "bg-amber-100 dark:bg-amber-900/40", text: "text-amber-800 dark:text-amber-400", label: "Medium" }
-  return { bg: "bg-emerald-100 dark:bg-emerald-900/40", text: "text-emerald-800 dark:text-emerald-400", label: "Low" }
+export interface RiskRow {
+  id: string;
+  title: string;
+  processName: string;
+  owner: string;
+  likelihood: number | null;
+  likelihoodLabel: string;
+  severity: number | null;
+  severityLabel: string;
+  riskScore: number | null;
+  rating: "Critical" | "High" | "Medium" | "Low" | "Not Rated";
+  mitigation: string;
+  actionStatus: "Pending" | "In Progress" | "Completed" | "Overdue" | "No Action";
+  status: "Active" | "Closed";
+  isActive: boolean;
+  requiresAction: boolean;
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color = getScoreColor(score)
-  return (
-    <Badge className={`${color.bg} ${color.text} hover:${color.bg} font-semibold tabular-nums`}>
-      {score} · {color.label}
-    </Badge>
-  )
+const LIKELIHOOD_LABELS: Record<number, string> = {
+  1: "1 — Rare",
+  2: "2 — Unlikely",
+  3: "3 — Possible",
+  4: "4 — Likely",
+  5: "5 — Almost Certain",
+};
+
+const SEVERITY_LABELS: Record<number, string> = {
+  1: "1 — Insignificant",
+  2: "2 — Minor",
+  3: "3 — Moderate",
+  4: "4 — Major",
+  5: "5 — Severe",
+};
+
+function getScoreRating(score: number | null): RiskRow["rating"] {
+  if (score === null || score === undefined || score === 0) return "Not Rated";
+  if (score >= 15) return "Critical";
+  if (score >= 10) return "High";
+  if (score >= 5)  return "Medium";
+  return "Low";
 }
 
-function StatusBadge({ status }: { status: RiskStatus }) {
-  switch (status) {
-    case "Open":
-      return <Badge className="bg-destructive/20 text-rose-800 hover:bg-destructive/20 dark:bg-rose-900/40 dark:text-rose-400">Open</Badge>
-    case "Mitigating":
-      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-400">Mitigating</Badge>
-    case "Closed":
-      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-400">Closed</Badge>
+function RatingBadge({ rating, score }: { rating: RiskRow["rating"]; score: number | null }) {
+  switch (rating) {
+    case "Critical":
+      return (
+        <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 text-xs font-semibold whitespace-nowrap">
+          {score} · Critical
+        </Badge>
+      );
+    case "High":
+      return (
+        <Badge className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800 text-xs font-semibold whitespace-nowrap">
+          {score} · High
+        </Badge>
+      );
+    case "Medium":
+      return (
+        <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 text-xs font-semibold whitespace-nowrap">
+          {score} · Medium
+        </Badge>
+      );
+    case "Low":
+      return (
+        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 text-xs font-semibold whitespace-nowrap">
+          {score} · Low
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline" className="bg-muted/40 text-muted-foreground border-border text-xs font-normal">
+          Not Rated
+        </Badge>
+      );
   }
 }
 
-import { useEmployee } from "@/lib/employee-context"
-
-import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
+function ActionStatusBadge({ status }: { status: RiskRow["actionStatus"] }) {
+  switch (status) {
+    case "Pending":
+      return (
+        <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 text-xs font-semibold">
+          Pending
+        </Badge>
+      );
+    case "In Progress":
+      return (
+        <Badge className="bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800 text-xs font-semibold">
+          In Progress
+        </Badge>
+      );
+    case "Completed":
+      return (
+        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 text-xs font-semibold">
+          Completed
+        </Badge>
+      );
+    case "Overdue":
+      return (
+        <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 text-xs font-semibold">
+          Overdue
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="outline" className="bg-muted/40 text-muted-foreground border-border text-xs font-normal">
+          No Action
+        </Badge>
+      );
+  }
+}
 
 export default function RiskRegisterPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const employee = useEmployee()
-  const [data, setData] = useState<any[]>(/* eslint-disable-line @typescript-eslint/no-explicit-any */ [])
-  const [loading, setLoading] = useState(true)
-  const [riskToDelete, setRiskToDelete] = useState<any | null>(null /* eslint-disable-line @typescript-eslint/no-explicit-any */)
-  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || null)
-  const [search, setSearch] = useState("")
-  const initL = searchParams.get("likelihood")
-  const initS = searchParams.get("severity")
-  const [likelihoodFilter, setLikelihoodFilter] = useState<number | null>(initL ? parseInt(initL) : null)
-  const [severityFilter, setSeverityFilter] = useState<number | null>(initS ? parseInt(initS) : null)
-  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL")
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const employee = useEmployee();
+  const [data, setData] = useState<RiskRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [riskToDelete, setRiskToDelete] = useState<RiskRow | null>(null);
+  const [departmentFilter, setDepartmentFilter] = useState<string | 'ALL' | null>(() => employee?.department_id || 'ALL');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL");
+  const [ratingFilter, setRatingFilter] = useState("ALL");
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
-  const supabase = useMemo(() => createClient(), [])
+  // Collapsible process groups
+  const [collapsedProcesses, setCollapsedProcesses] = useState<Set<string>>(new Set());
 
   // Reporting Period
-  const currentDate = new Date()
-  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
-  const actualYear = currentDate.getFullYear().toString()
-  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
-  const [activeYear, setActiveYear] = useState(actualYear)
+  const currentDate = new Date();
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`;
+  const actualYear = currentDate.getFullYear().toString();
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter);
+  const [activeYear, setActiveYear] = useState(actualYear);
+
+  const supabase = createClient();
 
   useEffect(() => {
     async function fetchData() {
-      if (!employee || departmentFilter === null) return
-      setLoading(true)
+      if (!employee || departmentFilter === null) return;
+      setLoading(true);
 
-      let query = supabase
+      // 1. Fetch risk_definitions
+      const { data: rawRisks, error: riskErr } = await supabase
         .from('risk_definitions')
-        .select(`
-          id,
-          risk_statement,
-          baseline_likelihood,
-          baseline_severity,
-          is_active,
-          treatment_solution,
-          custom_metadata,
-          risk_procedures!inner ( procedure_name, department_id )
-        `)
-      
-      if (departmentFilter !== 'ALL') {
-        query = query.eq('risk_procedures.department_id', departmentFilter)
-      }
-      
-      const { data: risks } = await query
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      // Get report cycles for the selected period
-      let cycleQuery = supabase.from('report_cycles').select('id, reporting_period')
-      if (departmentFilter !== 'ALL') {
-        cycleQuery = cycleQuery.eq('department_id', departmentFilter)
+      if (riskErr || !rawRisks) {
+        console.error("Error fetching risks:", riskErr);
+        setLoading(false);
+        return;
       }
-      if (activeQuarter !== 'ALL') {
-        cycleQuery = cycleQuery.ilike('reporting_period', `%${activeQuarter}%`)
-      }
-      if (activeYear) {
-        cycleQuery = cycleQuery.ilike('reporting_period', `%${activeYear}%`)
-      }
-      const { data: cycles } = await cycleQuery
-      const cycleIds = cycles?.map(c => c.id) || []
 
-      let assessments: any[] = []
+      // 2. Fetch employees for Owner resolution
+      const { data: emps } = await supabase
+        .from('employees')
+        .select('id, firstname, lastname');
+      const empsMap = new Map<string, string>();
+      if (emps) {
+        emps.forEach(e => empsMap.set(e.id, `${e.firstname} ${e.lastname}`.trim()));
+      }
+
+      // 3. Fetch procedures & processes for Process resolution
+      const { data: procs } = await supabase
+        .from('risk_procedures')
+        .select('id, procedure_name, department_id');
+      const procsMap = new Map<string, { name: string; department_id: string | null }>();
+      if (procs) {
+        procs.forEach(p => procsMap.set(p.id, { name: p.procedure_name, department_id: p.department_id }));
+      }
+
+      // 4. Fetch assessments for active report cycle
+      const periodPattern = activeQuarter === 'ALL'
+        ? (activeYear === 'ALL' ? '%' : `%${activeYear}`)
+        : (activeYear === 'ALL' ? `${activeQuarter}%` : `${activeQuarter} ${activeYear}`);
+
+      let cycleQuery = supabase.from('report_cycles').select('id, reporting_period');
+      if (departmentFilter !== 'ALL') {
+        cycleQuery = cycleQuery.eq('department_id', departmentFilter);
+      }
+      cycleQuery = cycleQuery.like('reporting_period', periodPattern);
+      const { data: cycles } = await cycleQuery;
+      const cycleIds = cycles?.map(c => c.id) || [];
+
+      let assessments: any[] = [];
       if (cycleIds.length > 0) {
         const { data: aData } = await supabase
           .from('risk_assessments')
-          .select('risk_id, residual_severity, residual_likelihood, treatment_effectiveness, followup_measure')
-          .in('report_cycle_id', cycleIds)
-        if (aData) assessments = aData
+          .select('risk_id, residual_severity, residual_likelihood, treatment_effectiveness, followup_measure, reason_for_deviation')
+          .in('report_cycle_id', cycleIds);
+        if (aData) assessments = aData;
+      } else if (rawRisks.length > 0) {
+        const { data: aData } = await supabase
+          .from('risk_assessments')
+          .select('risk_id, residual_severity, residual_likelihood, treatment_effectiveness, followup_measure, reason_for_deviation')
+          .order('created_at', { ascending: false });
+        if (aData) assessments = aData;
       }
-      
-      if (risks) {
-        const mapped = risks.map((r: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
-          const assessment = assessments.find((a: any) => a.risk_id === r.id)
-          const l = assessment?.residual_likelihood || r.baseline_likelihood || 1
-          const s = assessment?.residual_severity || r.baseline_severity || 1
-          const riskScore = l * s
-          const meta = (r.custom_metadata as any) || {}
-          const isClosed = r.is_active === false || meta.status === 'Closed'
-          const effectiveness = assessment?.treatment_effectiveness
-          const requiresAction = !isClosed && (
-            effectiveness === 'CORRECTION' ||
-            effectiveness === 'IMPROVEMENT' ||
-            Boolean(assessment?.followup_measure) ||
-            meta.status === 'Open' ||
-            meta.status === 'Mitigating' ||
-            (!assessment && riskScore >= 15) ||
-            !r.treatment_solution
-          )
 
-          return {
-            id: r.id,
-            processName: r.risk_procedures?.procedure_name || "General Procedure",
-            title: r.risk_statement,
-            likelihood: l,
-            severity: s,
-            riskScore,
-            linkedObjective: meta.linkedObjective || "",
-            status: isClosed ? "Closed" : (requiresAction ? "Mitigating" : "Open"),
-            isActive: !isClosed,
-            requiresAction,
-          }
-        })
-        setData(mapped)
+      let filteredRisks = rawRisks;
+      if (departmentFilter !== 'ALL') {
+        filteredRisks = filteredRisks.filter((r: any) => {
+          const proc = procsMap.get(r.procedure_id);
+          const deptId = proc?.department_id || r.custom_metadata?.departmentId || r.custom_metadata?.department_id;
+          return !deptId || deptId === departmentFilter;
+        });
       }
-      setLoading(false)
+
+      const mapped: RiskRow[] = filteredRisks.map((r: any) => {
+        const assessment = assessments.find((a: any) => a.risk_id === r.id);
+        const l = assessment?.residual_likelihood ?? r.baseline_likelihood ?? null;
+        const s = assessment?.residual_severity ?? r.baseline_severity ?? null;
+        const riskScore = l !== null && s !== null ? l * s : null;
+        const rating = getScoreRating(riskScore);
+        const meta = (r.custom_metadata as any) || {};
+
+        // Process Name
+        const proc = procsMap.get(r.procedure_id);
+        const processName = proc?.name || meta.processName || "Unassigned Process";
+
+        // Risk Owner
+        const ownerName = (r.owner_id ? empsMap.get(r.owner_id) : null) || meta.ownerName || "Unassigned";
+
+        // Likelihood & Severity Labels
+        const likelihoodLabel = l !== null && LIKELIHOOD_LABELS[l] ? LIKELIHOOD_LABELS[l] : (l !== null ? String(l) : "—");
+        const severityLabel = s !== null && SEVERITY_LABELS[s] ? SEVERITY_LABELS[s] : (s !== null ? String(s) : "—");
+
+        // Mitigation / Response
+        const rawMitigation = meta.riskResponse || r.treatment_solution || meta.mitigationStrategy || "";
+        const mitigation = rawMitigation.trim() ? rawMitigation.trim() : "Not defined";
+
+        // Status & Active state
+        const isClosed = r.is_active === false || meta.status === 'Closed';
+        const effectiveness = assessment?.treatment_effectiveness;
+
+        // Action Status
+        let actionStatus: RiskRow["actionStatus"] = "No Action";
+        if (meta.actionStatus) {
+          const asLower = String(meta.actionStatus).toLowerCase();
+          if (asLower.includes("pending")) actionStatus = "Pending";
+          else if (asLower.includes("progress") || asLower.includes("mitigating")) actionStatus = "In Progress";
+          else if (asLower.includes("completed") || asLower.includes("closed")) actionStatus = "Completed";
+          else if (asLower.includes("overdue")) actionStatus = "Overdue";
+          else actionStatus = "Pending";
+        } else if (effectiveness === "MAINTAIN" || isClosed) {
+          actionStatus = "Completed";
+        } else if (effectiveness === "CORRECTION" || effectiveness === "IMPROVEMENT" || assessment?.followup_measure) {
+          actionStatus = "In Progress";
+        } else if (rawMitigation.trim()) {
+          actionStatus = meta.status === "Mitigating" ? "In Progress" : "Pending";
+        } else {
+          actionStatus = "No Action";
+        }
+
+        const requiresAction = !isClosed && (
+          actionStatus === "Pending" ||
+          actionStatus === "Overdue" ||
+          actionStatus === "No Action" ||
+          effectiveness === "CORRECTION" ||
+          effectiveness === "IMPROVEMENT" ||
+          Boolean(assessment?.followup_measure) ||
+          !r.treatment_solution
+        );
+
+        return {
+          id: r.id,
+          title: r.risk_statement,
+          processName,
+          owner: ownerName,
+          likelihood: l,
+          likelihoodLabel,
+          severity: s,
+          severityLabel,
+          riskScore,
+          rating,
+          mitigation,
+          actionStatus,
+          status: isClosed ? "Closed" : "Active",
+          isActive: !isClosed,
+          requiresAction,
+        };
+      });
+
+      setData(mapped);
+      setLoading(false);
     }
-    fetchData()
-  }, [supabase, employee, departmentFilter, activeQuarter, activeYear])
+    fetchData();
+  }, [supabase, employee, departmentFilter, activeQuarter, activeYear]);
 
-  // A risk is "locked" once it has been marked Closed
-  const processedData = useMemo(() => {
-    let result = data;
-    result = result.filter(d => {
-      if (statusFilter !== "ALL") {
-        if (statusFilter === "Active" && !d.isActive) return false;
-        if (statusFilter === "Closed" && d.isActive) return false;
-        if (statusFilter === "Critical" && d.riskScore < 15) return false;
-        if (statusFilter === "Medium" && (d.riskScore < 5 || d.riskScore >= 15)) return false;
-        if (statusFilter === "Low" && (d.riskScore === 0 || d.riskScore >= 5)) return false;
-        if (statusFilter === "Not Assessed" && d.riskScore > 0) return false;
-        if (statusFilter === "Requiring Action" && !d.requiresAction) return false;
-      }
-      if (likelihoodFilter && d.likelihood !== likelihoodFilter) return false;
-      if (severityFilter && d.severity !== severityFilter) return false;
-      return d.title.toLowerCase().includes(search.toLowerCase()) || 
-             d.processName.toLowerCase().includes(search.toLowerCase());
-    });
-    
-    result = [...result].sort((a, b) => {
-      if (!sortKey) return 0
-      let aVal = a[sortKey]
-      let bVal = b[sortKey]
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase()
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase()
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
-      return 0
-    })
+  // Filter Risk records before grouping
+  const filteredData = data.filter(d => {
+    if (statusFilter !== "ALL") {
+      if (statusFilter === "Active" && !d.isActive) return false;
+      if (statusFilter === "Closed" && d.isActive) return false;
+      if (statusFilter === "Critical" && d.rating !== "Critical" && d.rating !== "High") return false;
+      if (statusFilter === "Requiring Action" && !d.requiresAction) return false;
+      if (statusFilter === "Medium" && d.rating !== "Medium") return false;
+      if (statusFilter === "Low" && d.rating !== "Low") return false;
+    }
+    if (ratingFilter !== "ALL" && d.rating !== ratingFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const match = 
+        d.title.toLowerCase().includes(q) ||
+        d.owner.toLowerCase().includes(q) ||
+        d.processName.toLowerCase().includes(q) ||
+        d.mitigation.toLowerCase().includes(q) ||
+        d.actionStatus.toLowerCase().includes(q) ||
+        d.rating.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    return true;
+  });
 
-    return result;
-  }, [data, search, statusFilter, sortKey, sortDir, likelihoodFilter, severityFilter])
+  // Sort Risk records
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortKey) return 0;
+    let aVal = (a as any)[sortKey];
+    let bVal = (b as any)[sortKey];
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Group Risks by Process / Risk Category
+  const processGroups = new Map<string, RiskRow[]>();
+  for (const risk of sortedData) {
+    const proc = risk.processName || "Unassigned Process";
+    if (!processGroups.has(proc)) {
+      processGroups.set(proc, []);
+    }
+    processGroups.get(proc)!.push(risk);
+  }
 
   const toggleAll = (checked: boolean) => {
-    if (checked) setSelectedIds(processedData.map(d => d.id))
-    else setSelectedIds([])
-  }
+    if (checked) setSelectedIds(sortedData.map(d => d.id));
+    else setSelectedIds([]);
+  };
+
   const toggleOne = (id: string, checked: boolean) => {
-    if (checked) setSelectedIds(prev => [...prev, id])
-    else setSelectedIds(prev => prev.filter(x => x !== id))
-  }
+    if (checked) setSelectedIds(prev => [...prev, id]);
+    else setSelectedIds(prev => prev.filter(x => x !== id));
+  };
 
-  const exportColumns = [
-    { key: 'title', label: 'Risk Title' },
-    { key: 'processName', label: 'Process' },
-    { key: 'likelihood', label: 'Likelihood' },
-    { key: 'severity', label: 'Severity' },
-    { key: 'riskScore', label: 'Score' }
-  ]
-
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      if (sortDir === 'asc') setSortDir('desc')
-      else { setSortKey(null); setSortDir('asc') }
+  const toggleGroupSelection = (groupRisks: RiskRow[], checked: boolean) => {
+    const groupIds = groupRisks.map(r => r.id);
+    if (checked) {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...groupIds])));
     } else {
-      setSortKey(key)
-      setSortDir('asc')
+      setSelectedIds(prev => prev.filter(id => !groupIds.includes(id)));
     }
-  }
-
-  const isLocked = (risk: RiskFormData) => risk.status === "Closed"
-
-  // Collapsible process groups
-  const [collapsedProcesses, setCollapsedProcesses] = useState<Set<string>>(new Set())
+  };
 
   const toggleProcess = (processName: string) => {
     setCollapsedProcesses(prev => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(processName)) {
-        next.delete(processName)
+        next.delete(processName);
       } else {
-        next.add(processName)
+        next.add(processName);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
+
+  const exportColumns = [
+    { key: 'title', label: 'Risk' },
+    { key: 'processName', label: 'Process' },
+    { key: 'owner', label: 'Risk Owner' },
+    { key: 'likelihoodLabel', label: 'Likelihood' },
+    { key: 'severityLabel', label: 'Impact / Severity' },
+    { key: 'rating', label: 'Risk Rating' },
+    { key: 'mitigation', label: 'Mitigation / Response' },
+    { key: 'actionStatus', label: 'Action Status' }
+  ];
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   const handleDelete = () => {
     if (riskToDelete) {
-      setData(data.filter(r => r.id !== riskToDelete.id))
-      toast.success(`"${riskToDelete.title}" was permanently deleted.`)
-      setRiskToDelete(null)
+      setData(data.filter(r => r.id !== riskToDelete.id));
+      toast.success(`"${riskToDelete.title}" was permanently deleted.`);
+      setRiskToDelete(null);
     }
-  }
+  };
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
@@ -281,25 +448,26 @@ export default function RiskRegisterPage() {
               />
             )}
             <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
-            <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["ALL", "Q1","Q2","Q3","Q4"].map((q) => (
-                <SelectItem key={q} value={q}>{q}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
-            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
-                <SelectItem key={y} value={y}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger className="w-[85px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["ALL", "Q1", "Q2", "Q3", "Q4"].map((q) => (
+                  <SelectItem key={q} value={q}>{q === "ALL" ? "All Qs" : q}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+              <SelectTrigger className="w-[95px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Years</SelectItem>
+                {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               className="bg-primary hover:bg-primary/90 text-white gap-2 h-9"
               onClick={() => router.push("/department/risks/new")}
@@ -312,7 +480,7 @@ export default function RiskRegisterPage() {
 
         {(() => {
           const totalActive = data.filter(d => d.isActive).length;
-          const highCritical = data.filter(d => d.isActive && d.riskScore >= 15).length;
+          const highCritical = data.filter(d => d.isActive && (d.rating === "High" || d.rating === "Critical")).length;
           const requiringAction = data.filter(d => d.isActive && d.requiresAction).length;
 
           return (
@@ -355,7 +523,7 @@ export default function RiskRegisterPage() {
                     <Tooltip>
                       <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-[200px] text-xs">Count of active risks where residual risk rating is High or Critical (Score ≥ 15).</p>
+                        <p className="max-w-[200px] text-xs">Count of active risks where Risk Rating is High or Critical.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -386,7 +554,7 @@ export default function RiskRegisterPage() {
                     <Tooltip>
                       <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-[200px] text-xs">Count of active risks with overdue or pending mitigation actions.</p>
+                        <p className="max-w-[200px] text-xs">Count of active risks with pending or overdue mitigation actions.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -410,36 +578,45 @@ export default function RiskRegisterPage() {
         })()}
       </div>
 
-      
-
-      {/* ── Risk Data Table ── */}
+      {/* ── Search & Filter Controls ── */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mt-2">
         <div className="flex items-center gap-2 w-full max-w-sm relative">
           <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
           <Input 
-            placeholder="Search risks..." 
+            placeholder="Search risks, owners, mitigation..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 w-full"
+            className="pl-9 w-full h-9 text-sm"
           />
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="flex items-center gap-1.5 shrink-0">
             <Funnel className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground font-medium">Filter</span>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[170px]">
-              <SelectValue placeholder="Filter Risks" />
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="Risk Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Risks</SelectItem>
               <SelectItem value="Active">Active Only</SelectItem>
               <SelectItem value="Critical">High / Critical</SelectItem>
               <SelectItem value="Requiring Action">Requiring Action</SelectItem>
-              <SelectItem value="Medium">Medium Score</SelectItem>
-              <SelectItem value="Low">Low Score</SelectItem>
               <SelectItem value="Closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={ratingFilter} onValueChange={setRatingFilter}>
+            <SelectTrigger className="w-[140px] h-9 text-sm">
+              <SelectValue placeholder="Rating" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Ratings</SelectItem>
+              <SelectItem value="Critical">Critical</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -447,137 +624,201 @@ export default function RiskRegisterPage() {
 
       <BulkExportToolbar 
         selectedIds={selectedIds} 
-        data={processedData} 
+        data={sortedData} 
         columns={exportColumns} 
         filename="risks_export"
         onClearSelection={() => setSelectedIds([])} 
       />
+
+      {/* ── Risk Register Table Grouped by Process ── */}
       <ScrollableTableWrapper>
-        <Table>
-          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
+        <Table className="min-w-full">
+          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 border-b">
             <TableRow>
+              {/* 1. Selection checkbox */}
               <TableHead className="w-12 h-10 px-4">
                 <Checkbox 
-                  checked={processedData.length > 0 && selectedIds.length === processedData.length} 
+                  checked={sortedData.length > 0 && selectedIds.length === sortedData.length} 
                   onCheckedChange={toggleAll}
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="h-10 pl-6">Risk</TableHead>
-              <TableHead className="h-10 w-[80px] text-center">L × S</TableHead>
-              <TableHead className="h-10">Score</TableHead>
-              <TableHead className="h-10">Linked Objective</TableHead>
-              <TableHead className="h-10">Status</TableHead>
-              <TableHead className="h-10 w-[50px]"></TableHead>
+
+              {/* 2. Risk */}
+              <TableHead className="h-10 cursor-pointer min-w-[240px]" onClick={() => handleSort('title')}>
+                <div className="flex items-center gap-1 font-semibold">Risk {sortKey === 'title' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 3. Risk Owner */}
+              <TableHead className="h-10 cursor-pointer min-w-[130px]" onClick={() => handleSort('owner')}>
+                <div className="flex items-center gap-1 font-semibold">Risk Owner {sortKey === 'owner' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 4. Likelihood */}
+              <TableHead className="h-10 cursor-pointer min-w-[130px]" onClick={() => handleSort('likelihood')}>
+                <div className="flex items-center gap-1 font-semibold">Likelihood {sortKey === 'likelihood' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 5. Impact / Severity */}
+              <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('severity')}>
+                <div className="flex items-center gap-1 font-semibold">Impact / Severity {sortKey === 'severity' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 6. Risk Rating */}
+              <TableHead className="h-10 cursor-pointer min-w-[130px]" onClick={() => handleSort('riskScore')}>
+                <div className="flex items-center gap-1 font-semibold">Risk Rating {sortKey === 'riskScore' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 7. Mitigation / Response */}
+              <TableHead className="h-10 min-w-[160px] font-semibold">Mitigation / Response</TableHead>
+
+              {/* 8. Action Status */}
+              <TableHead className="h-10 cursor-pointer min-w-[120px]" onClick={() => handleSort('actionStatus')}>
+                <div className="flex items-center gap-1 font-semibold">Action Status {sortKey === 'actionStatus' && (sortDir === 'asc' ? <CaretUp className="h-3.5 w-3.5" /> : <CaretDown className="h-3.5 w-3.5" />)}</div>
+              </TableHead>
+
+              {/* 9. Action */}
+              <TableHead className="h-10 w-[90px] text-right pr-4 font-semibold">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeleton columns={6} rows={3} />
-            ) : processedData.length === 0 ? (
+              <TableSkeleton columns={9} rows={3} />
+            ) : sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center text-muted-foreground">No risks found.</TableCell>
+                <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
+                  No risks found for the selected filters.
+                </TableCell>
               </TableRow>
-            ) : (() => {
-              const groups = processedData.reduce<Record<string, RiskFormData[]>>((acc, risk) => {
-                const key = risk.processName || "General"
-                if (!acc[key]) acc[key] = []
-                acc[key].push(risk)
-                return acc
-              }, {})
+            ) : (
+              Array.from(processGroups.entries()).map(([processName, groupRisks]) => {
+                const isCollapsed = collapsedProcesses.has(processName);
+                const groupIds = groupRisks.map(r => r.id);
+                const selectedInGroup = groupIds.filter(id => selectedIds.includes(id)).length;
+                const isGroupAllSelected = groupIds.length > 0 && selectedInGroup === groupIds.length;
+                const isGroupPartiallySelected = selectedInGroup > 0 && selectedInGroup < groupIds.length;
 
-              return Object.entries(groups).flatMap(([processName, risks]) => {
-                const isCollapsed = collapsedProcesses.has(processName)
                 return [
-                  // ── Process Section Header Row ──
+                  /* ── Process Group Header Row (Toggle & Group Checkbox) ── */
                   <TableRow
                     key={`group-${processName}`}
-                    className="bg-muted/80 dark:bg-zinc-900/60 hover:bg-slate-100/80 dark:hover:bg-zinc-900/80 cursor-pointer select-none"
+                    className="bg-muted/80 dark:bg-zinc-900/80 hover:bg-muted dark:hover:bg-zinc-900 cursor-pointer select-none border-t border-b transition-colors"
                     onClick={() => toggleProcess(processName)}
                   >
-                    <TableCell colSpan={6} className="py-2 px-4">
-                      <div className="flex items-center gap-2">
-                        {isCollapsed
-                          ? <CaretRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          : <CaretDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        }
-                        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground dark:text-zinc-400">
-                          {processName}
-                        </span>
-                        <span className="text-xs text-muted-foreground dark:text-zinc-500 ml-1">
-                          ({risks.length} {risks.length === 1 ? "risk" : "risks"})
-                        </span>
+                    <TableCell colSpan={9} className="py-2.5 px-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={isGroupAllSelected ? true : isGroupPartiallySelected ? "indeterminate" : false}
+                              onCheckedChange={(checked) => toggleGroupSelection(groupRisks, !!checked)}
+                              aria-label={`Select all risks in ${processName}`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? (
+                              <CaretRight className="h-4 w-4 text-foreground/70" />
+                            ) : (
+                              <CaretDown className="h-4 w-4 text-foreground/70" />
+                            )}
+                            <span className="text-xs font-bold tracking-wide uppercase text-foreground">
+                              {processName}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-normal">
+                              ({groupRisks.length} {groupRisks.length === 1 ? "risk" : "risks"})
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>,
-                  ...(!isCollapsed ? risks.map((row) => {
-                    const locked = isLocked(row)
-                    return (
-                      <TableRow
+
+                  /* ── Individual Risk Rows (Child Rows under Process Group) ── */
+                  ...(!isCollapsed ? groupRisks.map((row) => (
+                    <TableRow
                       key={row.id}
                       onClick={() => router.push(`/department/risks/${row.id}`)}
-                      className={`transition-colors cursor-pointer ${locked ? "bg-muted/60 dark:bg-zinc-900/30 hover:bg-slate-100/60 dark:hover:bg-zinc-900/50 opacity-80" : "hover:bg-muted dark:hover:bg-slate-900/50"}`}
+                      className="hover:bg-muted/50 dark:hover:bg-slate-900/50 cursor-pointer transition-colors"
                     >
+                      {/* 1. Selection checkbox */}
                       <TableCell className="px-4" onClick={(e) => e.stopPropagation()}>
                         <Checkbox 
-                          checked={selectedIds.includes(row.id as string)} 
-                          onCheckedChange={(checked) => toggleOne(row.id as string, checked as boolean)}
+                          checked={selectedIds.includes(row.id)} 
+                          onCheckedChange={(checked) => toggleOne(row.id, checked as boolean)}
                           aria-label="Select row"
                         />
                       </TableCell>
-                        <TableCell className="font-medium max-w-[280px] pl-6">
-                          <div className="flex items-center gap-2 truncate" title={row.title}>
-                            {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                            <span className="truncate">{row.title}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {row.likelihood} × {row.severity}
+
+                      {/* 2. Risk */}
+                      <TableCell className="font-medium max-w-[260px]">
+                        <span className="truncate block" title={row.title}>
+                          {row.title}
+                        </span>
+                      </TableCell>
+
+                      {/* 3. Risk Owner */}
+                      <TableCell className="text-muted-foreground text-sm max-w-[140px] truncate" title={row.owner}>
+                        {row.owner}
+                      </TableCell>
+
+                      {/* 4. Likelihood */}
+                      <TableCell className="text-xs tabular-nums whitespace-nowrap text-muted-foreground">
+                        {row.likelihoodLabel}
+                      </TableCell>
+
+                      {/* 5. Impact / Severity */}
+                      <TableCell className="text-xs tabular-nums whitespace-nowrap text-muted-foreground">
+                        {row.severityLabel}
+                      </TableCell>
+
+                      {/* 6. Risk Rating */}
+                      <TableCell className="whitespace-nowrap">
+                        <RatingBadge rating={row.rating} score={row.riskScore} />
+                      </TableCell>
+
+                      {/* 7. Mitigation / Response */}
+                      <TableCell className="text-xs max-w-[180px]">
+                        {row.mitigation === "Not defined" ? (
+                          <span className="text-muted-foreground">Not defined</span>
+                        ) : (
+                          <span className="truncate block font-medium" title={row.mitigation}>
+                            {row.mitigation}
                           </span>
-                        </TableCell>
-                        <TableCell>
-                          <ScoreBadge score={row.riskScore} />
-                        </TableCell>
-                        <TableCell>
-                          {row.linkedObjective ? (
-                            <span className="text-sm text-muted-foreground truncate block max-w-[200px]" title={row.linkedObjective}>
-                              {row.linkedObjective}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={row.status} />
-                        </TableCell>
-                        <TableCell>
-                          {locked ? (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground dark:text-zinc-500 font-medium px-1">
-                              <Lock className="h-3 w-3" />
-                              <span>Closed</span>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-rose-950/50 transition-colors z-10 relative"
-                              title="Delete Risk"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setRiskToDelete(row)
-                              }}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  }) : [])
-                ]
+                        )}
+                      </TableCell>
+
+                      {/* 8. Action Status */}
+                      <TableCell className="whitespace-nowrap">
+                        <ActionStatusBadge status={row.actionStatus} />
+                      </TableCell>
+
+                      {/* 9. Action */}
+                      <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2.5 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => router.push(`/department/risks/${row.id}`)}
+                          >
+                            View
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Delete Risk"
+                            onClick={() => setRiskToDelete(row)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )) : [])
+                ];
               })
-            })()}
+            )}
           </TableBody>
         </Table>
       </ScrollableTableWrapper>
@@ -602,5 +843,5 @@ export default function RiskRegisterPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
