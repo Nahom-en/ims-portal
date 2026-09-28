@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Plus, ShieldWarning, Trash, Lock, CaretUp, CaretDown, CaretRight, Warning, WarningCircle, Clock, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
+import { Plus, Trash, Lock, CaretDown, CaretRight, Warning, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
 
 import {
   Table,
@@ -83,7 +84,7 @@ export default function RiskRegisterPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // Reporting Period
   const currentDate = new Date()
@@ -92,11 +93,10 @@ export default function RiskRegisterPage() {
   const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
   const [activeYear, setActiveYear] = useState(actualYear)
 
-
-
   useEffect(() => {
     async function fetchData() {
       if (!employee || departmentFilter === null) return
+      setLoading(true)
 
       let query = supabase
         .from('risk_definitions')
@@ -105,6 +105,9 @@ export default function RiskRegisterPage() {
           risk_statement,
           baseline_likelihood,
           baseline_severity,
+          is_active,
+          treatment_solution,
+          custom_metadata,
           risk_procedures!inner ( procedure_name, department_id )
         `)
       
@@ -113,20 +116,60 @@ export default function RiskRegisterPage() {
       }
       
       const { data: risks } = await query
+
+      // Get report cycles for the selected period
+      let cycleQuery = supabase.from('report_cycles').select('id, reporting_period')
+      if (departmentFilter !== 'ALL') {
+        cycleQuery = cycleQuery.eq('department_id', departmentFilter)
+      }
+      if (activeQuarter !== 'ALL') {
+        cycleQuery = cycleQuery.ilike('reporting_period', `%${activeQuarter}%`)
+      }
+      if (activeYear) {
+        cycleQuery = cycleQuery.ilike('reporting_period', `%${activeYear}%`)
+      }
+      const { data: cycles } = await cycleQuery
+      const cycleIds = cycles?.map(c => c.id) || []
+
+      let assessments: any[] = []
+      if (cycleIds.length > 0) {
+        const { data: aData } = await supabase
+          .from('risk_assessments')
+          .select('risk_id, residual_severity, residual_likelihood, treatment_effectiveness, followup_measure')
+          .in('report_cycle_id', cycleIds)
+        if (aData) assessments = aData
+      }
       
       if (risks) {
         const mapped = risks.map((r: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
-          const l = r.baseline_likelihood || 1;
-          const s = r.baseline_severity || 1;
+          const assessment = assessments.find((a: any) => a.risk_id === r.id)
+          const l = assessment?.residual_likelihood || r.baseline_likelihood || 1
+          const s = assessment?.residual_severity || r.baseline_severity || 1
+          const riskScore = l * s
+          const meta = (r.custom_metadata as any) || {}
+          const isClosed = r.is_active === false || meta.status === 'Closed'
+          const effectiveness = assessment?.treatment_effectiveness
+          const requiresAction = !isClosed && (
+            effectiveness === 'CORRECTION' ||
+            effectiveness === 'IMPROVEMENT' ||
+            Boolean(assessment?.followup_measure) ||
+            meta.status === 'Open' ||
+            meta.status === 'Mitigating' ||
+            (!assessment && riskScore >= 15) ||
+            !r.treatment_solution
+          )
+
           return {
             id: r.id,
             processName: r.risk_procedures?.procedure_name || "General Procedure",
             title: r.risk_statement,
             likelihood: l,
             severity: s,
-            riskScore: l * s,
-            linkedObjective: "",
-            status: "Mitigating"
+            riskScore,
+            linkedObjective: meta.linkedObjective || "",
+            status: isClosed ? "Closed" : (requiresAction ? "Mitigating" : "Open"),
+            isActive: !isClosed,
+            requiresAction,
           }
         })
         setData(mapped)
@@ -134,22 +177,25 @@ export default function RiskRegisterPage() {
       setLoading(false)
     }
     fetchData()
-  }, [supabase, employee, departmentFilter])
+  }, [supabase, employee, departmentFilter, activeQuarter, activeYear])
 
   // A risk is "locked" once it has been marked Closed
   const processedData = useMemo(() => {
     let result = data;
     result = result.filter(d => {
       if (statusFilter !== "ALL") {
+        if (statusFilter === "Active" && !d.isActive) return false;
+        if (statusFilter === "Closed" && d.isActive) return false;
         if (statusFilter === "Critical" && d.riskScore < 15) return false;
         if (statusFilter === "Medium" && (d.riskScore < 5 || d.riskScore >= 15)) return false;
         if (statusFilter === "Low" && (d.riskScore === 0 || d.riskScore >= 5)) return false;
         if (statusFilter === "Not Assessed" && d.riskScore > 0) return false;
+        if (statusFilter === "Requiring Action" && !d.requiresAction) return false;
       }
       if (likelihoodFilter && d.likelihood !== likelihoodFilter) return false;
       if (severityFilter && d.severity !== severityFilter) return false;
       return d.title.toLowerCase().includes(search.toLowerCase()) || 
-             d.process.toLowerCase().includes(search.toLowerCase());
+             d.processName.toLowerCase().includes(search.toLowerCase());
     });
     
     result = [...result].sort((a, b) => {
@@ -264,51 +310,104 @@ export default function RiskRegisterPage() {
           </div>
         </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Risks</CardTitle>
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-[200px] text-xs">Total number of active risks identified.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{data.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active registered risks</p>
-            </CardContent>
-          </Card>
-          
-          <Card className={data.filter(d => d.riskScore >= 15).length > 0 ? "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20" : ""}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className={"text-sm font-medium " + (data.filter(d => d.riskScore >= 15).length > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground')}>High/Critical Risks</CardTitle>
-              <WarningCircle className={"h-4 w-4 opacity-70 " + (data.filter(d => d.riskScore >= 15).length > 0 ? 'text-red-600 dark:text-red-500' : 'text-muted-foreground')} />
-            </CardHeader>
-            <CardContent>
-              <div className={"text-2xl font-bold " + (data.filter(d => d.riskScore >= 15).length > 0 ? 'text-red-700 dark:text-red-400' : '')}>
-                {data.filter(d => d.riskScore >= 15).length}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Requires immediate mitigation</p>
-            </CardContent>
-          </Card>
-          
-          <Card className={data.filter(d => d.status === 'Overdue').length > 0 ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/20" : ""}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className={"text-sm font-medium " + (data.filter(d => d.status === 'Overdue').length > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground')}>Overdue for Review</CardTitle>
-              <Clock className={"h-4 w-4 opacity-70 " + (data.filter(d => d.status === 'Overdue').length > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground')} />
-            </CardHeader>
-            <CardContent>
-              <div className={"text-2xl font-bold " + (data.filter(d => d.status === 'Overdue').length > 0 ? 'text-amber-700 dark:text-amber-500' : '')}>
-                {data.filter(d => d.status === 'Overdue').length}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Action required</p>
-            </CardContent>
-          </Card>
-        </div>
+        {(() => {
+          const totalActive = data.filter(d => d.isActive).length;
+          const highCritical = data.filter(d => d.isActive && d.riskScore >= 15).length;
+          const requiringAction = data.filter(d => d.isActive && d.requiresAction).length;
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Card 1: Total Active Risks */}
+              <Card 
+                className="cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() => setStatusFilter(statusFilter === "Active" ? "ALL" : "Active")}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Active Risks</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Count of all currently open risks in the register.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalActive}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Currently open registered risks</p>
+                  <div className="mt-3">
+                    <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
+                      {totalActive} Active
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 2: High / Critical Risks */}
+              <Card 
+                className={`cursor-pointer transition-shadow hover:shadow-md ${highCritical > 0 ? "bg-rose-50/30 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/20" : ""}`}
+                onClick={() => setStatusFilter(statusFilter === "Critical" ? "ALL" : "Critical")}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className={`text-sm font-medium ${highCritical > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'}`}>High / Critical Risks</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Count of active risks where residual risk rating is High or Critical (Score ≥ 15).</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${highCritical > 0 ? 'text-rose-700 dark:text-rose-400' : ''}`}>
+                    {highCritical}
+                  </div>
+                  <p className="text-xs text-rose-600/80 dark:text-rose-400/80 mt-1">
+                    Residual rating High or Critical
+                  </p>
+                  <div className="mt-3">
+                    <Badge variant="outline" className={`font-normal text-[10px] ${highCritical > 0 ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-rose-50 dark:hover:bg-rose-950/40`}>
+                      {highCritical} High / Critical
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Risks Requiring Action */}
+              <Card 
+                className={`cursor-pointer transition-shadow hover:shadow-md ${requiringAction > 0 ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/20" : ""}`}
+                onClick={() => setStatusFilter(statusFilter === "Requiring Action" ? "ALL" : "Requiring Action")}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className={`text-sm font-medium ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground'}`}>Risks Requiring Action</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Count of active risks with overdue or pending mitigation actions.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : ''}`}>
+                    {requiringAction}
+                  </div>
+                  <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
+                    Pending or overdue mitigation
+                  </p>
+                  <div className="mt-3">
+                    <Badge variant="outline" className={`font-normal text-[10px] ${requiringAction > 0 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-amber-50 dark:hover:bg-amber-950/40`}>
+                      {requiringAction} Requiring Action
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
       </div>
 
       
@@ -330,15 +429,17 @@ export default function RiskRegisterPage() {
             <span className="text-sm text-muted-foreground font-medium">Filter</span>
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Severity" />
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="Filter Risks" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
-              <SelectItem value="Not Assessed">Not Assessed</SelectItem>
+              <SelectItem value="ALL">All Risks</SelectItem>
+              <SelectItem value="Active">Active Only</SelectItem>
+              <SelectItem value="Critical">High / Critical</SelectItem>
+              <SelectItem value="Requiring Action">Requiring Action</SelectItem>
+              <SelectItem value="Medium">Medium Score</SelectItem>
+              <SelectItem value="Low">Low Score</SelectItem>
+              <SelectItem value="Closed">Closed</SelectItem>
             </SelectContent>
           </Select>
         </div>

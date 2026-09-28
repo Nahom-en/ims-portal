@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass, Warning, CheckCircle, Info } from "@phosphor-icons/react"
+import { Target, Plus, Funnel, Trash, CaretUp, CaretDown, MagnifyingGlass, Info } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -226,85 +226,82 @@ export default function ObjectivesPage() {
 
       {(() => {
         const total = data.length;
-        const healthy = data.filter(d => d.status === 'Completed' || d.status === 'On Track').length;
-        const atRisk = data.filter(d => d.status === 'At Risk' || d.status === 'Overdue').length;
-        const healthPercent = total > 0 ? Math.round((healthy / total) * 100) : 0;
+        const achieved = data.filter(d => d.status === 'Achieved').length;
+        const achievementRate = total > 0 ? Math.round((achieved / total) * 100) : 0;
         
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card 1: Total IMS Objectives */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Objectives</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total IMS Objectives</CardTitle>
                 <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-[200px] text-xs">Total number of objectives set for the selected period.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[200px] text-xs">Count of all objective records.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{total}</div>
-                <p className="text-xs text-muted-foreground mt-1">For selected period</p>
+                <p className="text-xs text-muted-foreground mt-1">Total defined objectives</p>
                 <div className="mt-3">
                   <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
-                    {total} Active
+                    {total} Total Objectives
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Card 2: Objectives Achieved */}
             <Card className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Completed</CardTitle>
+                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Objectives Achieved</CardTitle>
                 <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-[200px] text-xs">Percentage of objectives that are currently on track or completed.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[200px] text-xs">Count of objectives where {activeQuarter} Status vs Target = Achieved.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{healthPercent}% On Track</div>
-                <div className="mt-3 h-1.5 w-full bg-emerald-100 dark:bg-emerald-950/50 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${healthPercent}%` }} />
-                </div>
-                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-2">{healthy} of {total} objectives on track</p>
+                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{achieved}</div>
+                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">{activeQuarter} Status = Achieved</p>
                 <div className="mt-3">
                   <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
-                    {healthPercent}% On Track
+                    {achieved} Achieved
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className={atRisk > 0 ? "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20" : ""}>
+            {/* Card 3: Achievement Rate */}
+            <Card className="bg-blue-50/30 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/20">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className={`text-sm font-medium ${atRisk > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>Attention Required</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">Achievement Rate</CardTitle>
                 <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-[200px] text-xs">Objectives that are at risk or overdue and require immediate attention.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[200px] text-xs">Achieved ÷ Total × 100</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${atRisk > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                  {atRisk > 0 ? atRisk : 'All clear'}
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                  {achievementRate}%
                 </div>
-                <p className={`text-xs mt-1 ${atRisk > 0 ? 'text-destructive/80' : 'text-muted-foreground'}`}>
-                  {atRisk > 0 ? 'At risk or overdue' : 'No interventions needed'}
+                <div className="mt-3 h-1.5 w-full bg-blue-100 dark:bg-blue-950/50 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${achievementRate}%` }} />
+                </div>
+                <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-2">
+                  {achieved} of {total} objectives achieved
                 </p>
-                <div className="mt-3">
-                  <Badge variant="outline" className={`font-normal text-[10px] ${atRisk > 0 ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/40' : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                    {atRisk > 0 ? `${atRisk} Interventions` : '0 Interventions'}
-                  </Badge>
-                </div>
               </CardContent>
             </Card>
           </div>

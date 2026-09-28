@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Plus, FileCsv, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, ChartLineUp, CheckCircle, WarningCircle, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
+import { Plus, Trash, Lock, CaretUp, CaretDown, CaretRight, Pulse, MagnifyingGlass, Funnel, Info } from "@phosphor-icons/react"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
 import { Checkbox } from "@/components/ui/checkbox"
 import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
@@ -42,6 +43,13 @@ export default function KPITrackingPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL")
   
+  // Reporting Period
+  const currentDate = new Date()
+  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
+  const actualYear = currentDate.getFullYear().toString()
+  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
+  const [activeYear, setActiveYear] = useState(actualYear)
+
   const supabase = createClient()
   useEffect(() => {
     async function fetchData() {
@@ -53,7 +61,7 @@ export default function KPITrackingPage() {
           id,
           kpi_name,
           target_value,
-          
+          unit,
           processes!inner (
             process_name,
             department_id
@@ -67,17 +75,34 @@ export default function KPITrackingPage() {
       const { data: kpis } = await query
       
       if (kpis) {
+        // Query measurements for the active period
+        const { data: cycles } = await supabase.from('report_cycles').select('id')
+          .like('reporting_period', activeQuarter === 'ALL' ? `%${activeYear}` : `${activeQuarter} ${activeYear}`)
+        const cycleIds = cycles?.map(c => c.id) || []
+
+        let measurements: any[] = []
+        if (cycleIds.length > 0 && kpis.length > 0) {
+          const kpiIds = kpis.map((k: any) => k.id)
+          const { data: mData } = await supabase.from('kpi_measurements')
+            .select('kpi_id, actual_value, status, justification_for_deviation')
+            .in('kpi_id', kpiIds)
+            .in('report_cycle_id', cycleIds)
+          if (mData) measurements = mData
+        }
+
         const mapped = kpis.map((k: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+          const m = measurements.find((meas: any) => meas.kpi_id === k.id)
+          const isAchieved = m?.status === 'Achieved'
           return {
             id: k.id,
             name: k.kpi_name,
             processName: k.processes?.process_name || "Department Metrics",
             responsibility: "Dept Head",
-            target: `${k.target_value} `,
-            actual: "",
-            achievementPercentage: "",
-            status: "Pending",
-            justification: ""
+            target: `${k.target_value}${k.unit ? ` ${k.unit}` : ''}`,
+            actual: m?.actual_value || "",
+            achievementPercentage: isAchieved ? "100" : (m?.actual_value ? "50" : ""),
+            status: m?.status || "Pending",
+            justification: m?.justification_for_deviation || ""
           }
         })
         setData(mapped)
@@ -85,14 +110,7 @@ export default function KPITrackingPage() {
       setLoading(false)
     }
     fetchData()
-  }, [supabase, employee, departmentFilter])
-
-  // Reporting Period
-  const currentDate = new Date()
-  const actualQuarter = `Q${Math.floor(currentDate.getMonth() / 3) + 1}`
-  const actualYear = currentDate.getFullYear().toString()
-  const [activeQuarter, setActiveQuarter] = useState(actualQuarter)
-  const [activeYear, setActiveYear] = useState(actualYear)
+  }, [supabase, employee, departmentFilter, activeQuarter, activeYear])
 
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -215,80 +233,85 @@ export default function KPITrackingPage() {
 
         {(() => {
           const total = data.length;
-          const avgScore = total > 0 ? (data.reduce((acc, k) => acc + (parseFloat(k.achievementPercentage) || 0), 0) / total) : 0;
-          const belowTarget = data.filter(d => d.status === 'Below Target').length;
-          
-          const uniqueProcesses = new Set(data.map(d => d.process)).size;
-          
-          let scoreColor = "text-emerald-600 dark:text-emerald-500";
-          let scoreBg = "bg-emerald-500";
-          let scoreBgTrack = "bg-emerald-100 dark:bg-emerald-950/50";
-          
-          if (avgScore < 50) {
-            scoreColor = "text-destructive";
-            scoreBg = "bg-destructive";
-            scoreBgTrack = "bg-red-100 dark:bg-red-950/50";
-          } else if (avgScore < 80) {
-            scoreColor = "text-amber-600 dark:text-amber-500";
-            scoreBg = "bg-amber-500";
-            scoreBgTrack = "bg-amber-100 dark:bg-amber-950/50";
-          }
+          const kpisAchieved = data.filter(d => d.status === 'Achieved').length;
+          const achievementRate = total > 0 ? Math.round((kpisAchieved / total) * 100) : 0;
 
           return (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Card 1: Total KPIs */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Tracked Metrics</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total KPIs</CardTitle>
                   <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-[200px] text-xs">Total number of Key Performance Indicators tracked.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Count of all KPIs being monitored.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{total}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Across {uniqueProcesses} department process{uniqueProcesses !== 1 ? 'es' : ''}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Total monitored KPIs</p>
                   <div className="mt-3">
                     <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
-                      {total} Active KPIs
+                      {total} Total
                     </Badge>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* Card 2: KPIs Achieved */}
+              <Card className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Overall Achievement</CardTitle>
+                  <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">KPIs Achieved</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Count of KPIs where actual performance meets or exceeds target.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-2xl font-bold ${scoreColor}`}>
-                    {avgScore.toFixed(1)}%
+                  <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                    {kpisAchieved}
                   </div>
-                  <div className={`mt-3 h-1.5 w-full ${scoreBgTrack} rounded-full overflow-hidden`}>
-                    <div className={`h-full ${scoreBg} rounded-full`} style={{ width: `${Math.min(100, Math.max(0, avgScore))}%` }} />
+                  <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                    Meeting or exceeding target
+                  </p>
+                  <div className="mt-3">
+                    <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
+                      {kpisAchieved} Achieved
+                    </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Average target completion</p>
                 </CardContent>
               </Card>
 
-              <Card className={belowTarget > 0 ? "bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/20" : "bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20"}>
+              {/* Card 3: KPI Achievement Rate */}
+              <Card className="bg-blue-50/30 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/20">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className={`text-sm font-medium ${belowTarget > 0 ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400'}`}>Underperforming</CardTitle>
-                  {belowTarget > 0 ? (
-                    <WarningCircle className="h-4 w-4 text-destructive opacity-70" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 text-emerald-600 opacity-70" />
-                  )}
+                  <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">KPI Achievement Rate</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">KPIs Achieved ÷ Total KPIs × 100</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-2xl font-bold ${belowTarget > 0 ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                    {belowTarget > 0 ? belowTarget : 'Targets met'}
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                    {achievementRate}%
                   </div>
-                  <p className={`text-xs mt-1 ${belowTarget > 0 ? 'text-destructive/80' : 'text-emerald-600/80 dark:text-emerald-400/80'}`}>
-                    {belowTarget > 0 ? 'Metrics requiring intervention' : 'No interventions needed'}
+                  <div className="mt-3 h-1.5 w-full bg-blue-100 dark:bg-blue-950/50 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${achievementRate}%` }} />
+                  </div>
+                  <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-2">
+                    {kpisAchieved} of {total} KPIs achieved
                   </p>
                 </CardContent>
               </Card>
