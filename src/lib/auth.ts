@@ -19,17 +19,32 @@ export async function getCurrentEmployee(supabase: SupabaseClient) {
   if (employee && employee.role === 'SYSTEM_ADMIN') {
     is_approver = true
   } else if (employee) {
-    const { data: templates } = await supabase.from('workflow_templates').select('steps')
-    if (templates) {
-      for (const t of templates) {
-        const steps = Array.isArray(t.steps) ? t.steps : []
-        for (const step of steps) {
-          if (step.approverId === employee.id || step.roleId === employee.company_role_id) {
-            is_approver = true
-            break
+    // Check if user is head of any department
+    const { data: managedDepts } = await supabase
+      .from('departments')
+      .select('id')
+      .eq('manager_id', employee.id)
+      .limit(1)
+
+    if (managedDepts && managedDepts.length > 0) {
+      is_approver = true
+    }
+
+    if (!is_approver) {
+      const { data: templates } = await supabase.from('workflow_templates').select('steps')
+      if (templates) {
+        for (const t of templates) {
+          const steps = Array.isArray(t.steps) ? t.steps : []
+          for (const step of steps) {
+            const approverId = step.approverId || step.approver_id
+            const roleId = step.roleId || step.role_id
+            if (approverId === employee.id || (roleId && roleId === employee.company_role_id)) {
+              is_approver = true
+              break
+            }
           }
+          if (is_approver) break
         }
-        if (is_approver) break
       }
     }
   }

@@ -86,7 +86,14 @@ export async function approveStep(
     
   if (error || !request) throw new Error("Request not found")
   
-  const steps = Array.isArray(request.chain_snapshot) ? request.chain_snapshot : []
+  let steps = Array.isArray(request.chain_snapshot) ? request.chain_snapshot : []
+  if (steps.length === 0 && request.department_id) {
+    const { data: tmpl } = await supabase.from('workflow_templates').select('steps').eq('department_id', request.department_id).maybeSingle()
+    if (tmpl && Array.isArray(tmpl.steps) && tmpl.steps.length > 0) {
+      steps = tmpl.steps
+      await supabase.from('approval_requests').update({ chain_snapshot: steps }).eq('id', request.id)
+    }
+  }
   const currentIndex = request.current_step_index
   
   // STRICT AUTHORIZATION CHECK
@@ -102,10 +109,12 @@ export async function approveStep(
       }
     } else {
       const currentStep = steps[currentIndex]
+      const stepApproverId = currentStep?.approverId || currentStep?.approver_id
+      const stepRoleId = currentStep?.roleId || currentStep?.role_id
       let authorized = false
-      if (currentStep?.approverId && currentStep.approverId === params.actorId) {
+      if (stepApproverId && stepApproverId === params.actorId) {
         authorized = true
-      } else if (currentStep?.roleId && currentStep.roleId === actor.company_role_id) {
+      } else if (stepRoleId && stepRoleId === actor.company_role_id) {
         authorized = true
       }
       
@@ -155,7 +164,13 @@ export async function rejectStep(
   const { data: request } = await supabase.from('approval_requests').select('*').eq('id', params.requestId).single()
   if (!request) throw new Error("Not found")
 
-  const steps = Array.isArray(request.chain_snapshot) ? request.chain_snapshot : []
+  let steps = Array.isArray(request.chain_snapshot) ? request.chain_snapshot : []
+  if (steps.length === 0 && request.department_id) {
+    const { data: tmpl } = await supabase.from('workflow_templates').select('steps').eq('department_id', request.department_id).maybeSingle()
+    if (tmpl && Array.isArray(tmpl.steps) && tmpl.steps.length > 0) {
+      steps = tmpl.steps
+    }
+  }
   const stepLabel = request.current_step_index === -1 ? 'Pre-Approval' : (steps[request.current_step_index]?.label || 'Review')
 
   await supabase.from('approval_requests').update({ status: 'REJECTED' }).eq('id', params.requestId)
