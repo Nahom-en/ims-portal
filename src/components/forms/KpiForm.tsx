@@ -75,7 +75,7 @@ export default function KpiForm({
       name: "",
       target: "",
       dataSource: "",
-      analysisFrequency: "",
+      analysisFrequency: "MONTHLY",
       analysisMethodology: "",
       responsibility: "",
       actual: "",
@@ -244,15 +244,32 @@ export default function KpiForm({
             <div className="space-y-2">
               <Label htmlFor="kpi-frequency">Analysis Frequency</Label>
               {readOnly ? (
-                <div className="font-medium text-sm text-slate-900 dark:text-slate-100">{formData.analysisFrequency || "—"}</div>
+                <div className="font-medium text-sm text-slate-900 dark:text-slate-100">
+                  {formData.analysisFrequency === "MONTHLY" ? "Monthly" :
+                   formData.analysisFrequency === "QUARTERLY" ? "Quarterly" :
+                   formData.analysisFrequency === "BI_YEARLY" ? "Bi-Yearly" :
+                   formData.analysisFrequency === "YEARLY" ? "Yearly" : formData.analysisFrequency || "—"}
+                </div>
               ) : (
-                <Input
-                  id="kpi-frequency"
-                  placeholder="e.g., Quarterly, Monthly"
-                  value={formData.analysisFrequency}
-                  onChange={(e) => setFormData({ ...formData, analysisFrequency: e.target.value })}
-                  className="bg-white dark:bg-zinc-950"
-                />
+                <Select
+                  value={formData.analysisFrequency || "MONTHLY"}
+                  onValueChange={(val) => setFormData({ ...formData, analysisFrequency: val ?? "MONTHLY" })}
+                >
+                  <SelectTrigger id="kpi-frequency" className="w-full bg-white dark:bg-zinc-950">
+                    <SelectValue placeholder="Select frequency">
+                      {formData.analysisFrequency === "MONTHLY" ? "Monthly" :
+                       formData.analysisFrequency === "QUARTERLY" ? "Quarterly" :
+                       formData.analysisFrequency === "BI_YEARLY" ? "Bi-Yearly" :
+                       formData.analysisFrequency === "YEARLY" ? "Yearly" : "Select frequency"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                    <SelectItem value="BI_YEARLY">Bi-Yearly</SelectItem>
+                    <SelectItem value="YEARLY">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
             </div>
 

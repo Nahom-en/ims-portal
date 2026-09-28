@@ -149,25 +149,28 @@ export default function RiskForm({
           {/* Process */}
           <div className="space-y-2">
             <Label>
-              Process
+              Process <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
             </Label>
             {isEditMode ? (
               <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
                 <Stack className="h-4 w-4 text-muted-foreground" />
-                {formData.processName || "—"}
+                {formData.processName || "None"}
               </div>
             ) : processes.length > 0 ? (
               <Select
-                value={formData.processName}
-                onValueChange={(val) => setFormData({ ...formData, processName: val ?? "", linkedObjective: "" })}
+                value={formData.processName || "none"}
+                onValueChange={(val) => setFormData({ ...formData, processName: val === "none" ? "" : (val ?? ""), linkedObjective: "" })}
               >
                 <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
                   <div className="flex items-center gap-2">
                     <Stack className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Select a process">{formData.processId ? processes.find(p => p.id === formData.processId)?.name || formData.processId : undefined}</SelectValue>
+                    <SelectValue placeholder="Select a process (optional)">
+                      {formData.processName || "None"}
+                    </SelectValue>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
                   {processes.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
@@ -175,7 +178,7 @@ export default function RiskForm({
               </Select>
             ) : (
               <Input
-                placeholder="e.g., Service Delivery"
+                placeholder="e.g., Service Delivery (optional)"
                 value={formData.processName}
                 onChange={(e) => setFormData({ ...formData, processName: e.target.value })}
                 className="bg-white dark:bg-zinc-950"
