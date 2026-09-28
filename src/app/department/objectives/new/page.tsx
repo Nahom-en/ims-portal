@@ -80,7 +80,7 @@ export default function CreateObjectivePage() {
       setLoadingLookups(false)
     }
     fetchLookups()
-  }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, employee])
 
   // ── Supabase INSERT ──────────────────────────────────────────────────────────
   const handleCreate = async (data: ObjectiveFormData) => {
@@ -152,12 +152,16 @@ export default function CreateObjectivePage() {
       is_active: false // Only becomes active when approved
     }
 
+    const entityId = crypto.randomUUID()
+    const payloadWithId = { ...payload, id: entityId }
+
     try {
       await submitForApproval(supabase, {
         entityType: 'objective',
+        entityId: entityId,
         departmentId: departmentId,
         requestedBy: employee.id,
-        payload: payload
+        payload: payloadWithId
       })
 
       toast.success(`Objective submitted for approval.`)
@@ -171,7 +175,7 @@ export default function CreateObjectivePage() {
   }
 
   // ── Loading state ────────────────────────────────────────────────────────────
-  if (loadingLookups) return <DetailSkeleton />
+  if (loadingLookups || !employee) return <DetailSkeleton />
 
   return (
     <div className="flex-1 p-4 md:p-6 w-full max-w-3xl mx-auto space-y-6">

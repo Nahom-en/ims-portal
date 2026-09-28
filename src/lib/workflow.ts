@@ -11,30 +11,61 @@ export async function submitForApproval(
   }
 ) {
   // 1. Fetch the department's workflow template (JSONB steps)
-  const { data: template, error: tmplErr } = await supabase
-    .from('workflow_templates')
-    .select('steps')
-    .eq('department_id', params.departmentId)
-    .single()
+  let steps: Record<string, unknown>[] = []
+  if (params.departmentId) {
+    const { data: template } = await supabase
+      .from('workflow_templates')
+      .select('steps')
+      .eq('department_id', params.departmentId)
+      .maybeSingle()
 
-  if (tmplErr || !template) throw new Error("Workflow template not found for this department")
+    if (template && Array.isArray(template.steps) && template.steps.length > 0) {
+      steps = template.steps
+    }
+  }
 
-  // Ensure steps is a valid array
-  const steps = Array.isArray(template.steps) ? template.steps : []
-  if (steps.length === 0) throw new Error("Department has no configured workflow steps")
+  // Fallback 1: check for any global/default workflow template
+  if (steps.length === 0) {
+    const { data: defaultTmpl } = await supabase
+      .from('workflow_templates')
+      .select('steps')
+      .is('department_id', null)
+      .maybeSingle()
+    if (defaultTmpl && Array.isArray(defaultTmpl.steps) && defaultTmpl.steps.length > 0) {
+      steps = defaultTmpl.steps
+    }
+  }
 
-  // Check delegation
-  const { data: dept } = await supabase.from('departments').select('manager_id').eq('id', params.departmentId).single()
-  // Note: Your pristine schema doesn't have manager_id natively, but if it exists we use it. If not, isDelegated is false.
-  const isDelegated = dept?.manager_id && dept.manager_id !== params.requestedBy
+  // Check department & manager delegation
+  let deptManagerId: string | null = null
+  if (params.departmentId) {
+    const { data: dept } = await supabase
+      .from('departments')
+      .select('manager_id')
+      .eq('id', params.departmentId)
+      .maybeSingle()
+    deptManagerId = dept?.manager_id || null
+  }
+
+  // Fallback 2: Dynamic fallback steps based on manager or system admin
+  if (steps.length === 0) {
+    if (deptManagerId) {
+      steps = [{ label: 'Department Manager Review', approverId: deptManagerId, roleId: null }]
+    } else {
+      steps = [{ label: 'System Admin Review', role: 'SYSTEM_ADMIN' }]
+    }
+  }
+
+  const isDelegated = !!(deptManagerId && deptManagerId !== params.requestedBy)
   const initialIndex = isDelegated ? -1 : 0
+  const finalEntityId = params.entityId || crypto.randomUUID()
 
   // 2. Create the staging approval request with the snapshotted steps
   const { data: request, error: reqErr } = await supabase
     .from('approval_requests')
     .insert({
       entity_type: params.entityType,
-      entity_id: params.entityId || null,
+      entity_id: finalEntityId,
       department_id: params.departmentId,
       requested_by: params.requestedBy,
       payload: params.payload || {},
@@ -148,6 +179,7 @@ export async function approveStep(
       recipient_id: request.requested_by, approval_request_id: request.id, type: 'WORKFLOW_APPROVED',
       title: `${request.entity_type} Approved`, message: `Your ${request.entity_type} has been fully approved.`
     })
+    await applyPublishedChanges(supabase, request)
   } else {
     const nextIndex = currentIndex + 1
     await supabase.from('approval_requests').update({ current_step_index: nextIndex }).eq('id', request.id)
@@ -248,5 +280,139 @@ async function notifyApproversAtStep(supabase: SupabaseClient, requestId: string
       title: `Approval Required: ${entityType}`, message: `Review required.`
     }))
     await supabase.from('notifications').insert(notifications)
+  }
+}
+
+async function applyPublishedChanges(supabase: SupabaseClient, request: Record<string, unknown>) {
+  try {
+    const entityType = ((request.entity_type as string) || '').toLowerCase()
+    const entityId = request.entity_id as string
+    if (!entityId) return
+
+    const payload = (request.payload as Record<string, unknown>) || {}
+    const meta = (request.custom_metadata as Record<string, unknown>) || (payload.custom_metadata as Record<string, unknown>) || {}
+    const changeType = (((meta.change_type as string) || 'CREATE')).toUpperCase()
+
+    if (changeType === 'DELETE') {
+      if (entityType === 'objective') {
+        await supabase.from('objective_definitions').update({ is_active: false }).eq('id', entityId)
+      } else if (entityType === 'kpi') {
+        await supabase.from('kpi_definitions').update({ is_active: false }).eq('id', entityId)
+      } else if (entityType === 'risk') {
+        await supabase.from('risk_definitions').update({ is_active: false }).eq('id', entityId)
+      }
+      return
+    }
+
+    if (changeType === 'UPDATE') {
+      let proposed = meta.proposed_changes
+      if (typeof proposed === 'string') {
+        try { proposed = JSON.parse(proposed) } catch { proposed = {} }
+      }
+      const dataToApply = proposed || payload
+
+      if (entityType === 'objective') {
+        await supabase.from('objective_definitions').update({
+          objective_description: dataToApply.name || dataToApply.objective_description,
+          success_criteria: dataToApply.successCriteria || dataToApply.success_criteria,
+          custom_metadata: {
+            ...meta,
+            processNames: dataToApply.processNames,
+            description: dataToApply.description,
+            linkedKpis: dataToApply.linkedKpis,
+          },
+          updated_at: new Date().toISOString()
+        }).eq('id', entityId)
+      } else if (entityType === 'kpi') {
+        await supabase.from('kpi_definitions').update({
+          kpi_name: dataToApply.name || dataToApply.kpi_name,
+          target_value: dataToApply.target || dataToApply.target_value,
+          unit: dataToApply.unit ?? '',
+          source: dataToApply.dataSource || dataToApply.source || 'Manual',
+          custom_metadata: {
+            ...meta,
+            responsibility: dataToApply.responsibility,
+            analysisMethodology: dataToApply.analysisMethodology,
+            customFields: dataToApply.customFields ?? [],
+          },
+          updated_at: new Date().toISOString()
+        }).eq('id', entityId)
+      } else if (entityType === 'risk') {
+        await supabase.from('risk_definitions').update({
+          risk_statement: dataToApply.title || dataToApply.risk_statement,
+          affected_assets: dataToApply.description || dataToApply.affected_assets,
+          threat: dataToApply.description || dataToApply.threat,
+          vulnerability: dataToApply.description || dataToApply.vulnerability,
+          treatment_solution: dataToApply.mitigationStrategy || dataToApply.treatment_solution,
+          baseline_likelihood: dataToApply.likelihood || dataToApply.baseline_likelihood,
+          baseline_severity: dataToApply.severity || dataToApply.baseline_severity,
+          custom_metadata: {
+            ...meta,
+            linkedObjective: dataToApply.linkedObjective,
+            treatmentType: dataToApply.treatmentType,
+          },
+          updated_at: new Date().toISOString()
+        }).eq('id', entityId)
+      }
+      return
+    }
+
+    // Default: CREATE
+    if (entityType === 'objective') {
+      const { data: existing } = await supabase.from('objective_definitions').select('id').eq('id', entityId).maybeSingle()
+      if (existing) {
+        await supabase.from('objective_definitions').update({ is_active: true }).eq('id', entityId)
+      } else {
+        await supabase.from('objective_definitions').insert({
+          id: entityId,
+          department_id: request.department_id,
+          objective_description: payload.objective_description || payload.name || 'New Objective',
+          success_criteria: payload.success_criteria || null,
+          start_date: payload.start_date || '2026-01-01',
+          end_date: payload.end_date || '2026-12-31',
+          custom_metadata: payload.custom_metadata || meta,
+          is_active: true
+        })
+      }
+    } else if (entityType === 'kpi') {
+      const { data: existing } = await supabase.from('kpi_definitions').select('id').eq('id', entityId).maybeSingle()
+      if (existing) {
+        await supabase.from('kpi_definitions').update({ is_active: true }).eq('id', entityId)
+      } else {
+        await supabase.from('kpi_definitions').insert({
+          id: entityId,
+          process_id: payload.process_id || null,
+          kpi_name: payload.kpi_name || payload.name || 'New KPI',
+          target_value: payload.target_value || payload.target || '100',
+          unit: payload.unit || '',
+          source: payload.source || 'Manual',
+          analysis_frequency: payload.analysis_frequency || 'MONTHLY',
+          custom_metadata: payload.custom_metadata || meta,
+          is_active: true
+        })
+      }
+    } else if (entityType === 'risk') {
+      const { data: existing } = await supabase.from('risk_definitions').select('id').eq('id', entityId).maybeSingle()
+      if (existing) {
+        await supabase.from('risk_definitions').update({ is_active: true }).eq('id', entityId)
+      } else {
+        await supabase.from('risk_definitions').insert({
+          id: entityId,
+          procedure_id: payload.procedure_id || null,
+          owner_id: payload.owner_id || null,
+          risk_statement: payload.risk_statement || payload.title || 'New Risk',
+          affected_assets: payload.affected_assets || payload.description || 'Assets',
+          threat: payload.threat || payload.description || 'Threat',
+          vulnerability: payload.vulnerability || payload.description || 'Vulnerability',
+          treatment_solution: payload.treatment_solution || payload.mitigationStrategy || '',
+          baseline_likelihood: payload.baseline_likelihood || payload.likelihood || 3,
+          baseline_severity: payload.baseline_severity || payload.severity || 3,
+          custom_metadata: payload.custom_metadata || meta,
+          is_active: true
+        })
+      }
+    }
+  } catch (pubErr) {
+    console.error('Failed to apply published changes:', pubErr)
   }
 }

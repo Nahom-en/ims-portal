@@ -4,13 +4,15 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, ShieldWarning, Pulse, Target, ClockCounterClockwise, Lock } from "@phosphor-icons/react"
+import { ArrowLeft, ShieldWarning, Pulse, ClockCounterClockwise, Lock } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
 import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import { Badge } from "@/components/ui/badge"
 import RiskForm, { RiskFormData, RiskStatus } from "@/components/forms/RiskForm"
 import { createClient } from "@/lib/supabase/client"
+import { useEmployee } from "@/lib/employee-context"
+import { submitForApproval } from "@/lib/workflow"
 
 function getScoreColor(score: number) {
   if (score >= 15) return { bg: "bg-destructive/20 dark:bg-rose-900/40", text: "text-rose-800 dark:text-rose-400", label: "Critical" }
@@ -35,12 +37,12 @@ export default function RiskDetailsPage() {
   const id = params.id as string
 
   const supabase = createClient()
+  const employee = useEmployee()
   const [activeTab, setActiveTab] = useState<"profile" | "mitigation" | "history">("profile")
   const [risk, setRisk] = useState<RiskFormData | null>(null)
   const [cycleStatus, setCycleStatus] = useState<string | null>(null)
   const [availableObjectives, setAvailableObjectives] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [processes, setProcesses] = useState<{id: string, name: string}[]>([])
 
   useEffect(() => {
@@ -127,27 +129,34 @@ export default function RiskDetailsPage() {
 
 
   const handleUpdate = async (updatedData: RiskFormData) => {
-    setSaving(true)
-    const { error } = await supabase
-      .from("risk_definitions")
-      .update({
-        risk_statement: updatedData.title,
-        affected_assets: updatedData.description,
-        threat: updatedData.description,
-        vulnerability: updatedData.description,
-        treatment_solution: updatedData.mitigationStrategy,
-        baseline_likelihood: updatedData.likelihood,
-        baseline_severity: updatedData.severity,
-        custom_metadata: {
-          linkedObjective: updatedData.linkedObjective,
-          customFields: updatedData.customFields ?? [],
+    try {
+      await submitForApproval(supabase, {
+        entityType: "risk",
+        entityId: id,
+        departmentId: employee?.department_id || "",
+        requestedBy: employee?.id || "",
+        payload: {
+          id: id,
+          risk_statement: updatedData.title,
+          affected_assets: updatedData.description,
+          threat: updatedData.description,
+          vulnerability: updatedData.description,
+          treatment_solution: updatedData.mitigationStrategy,
+          baseline_likelihood: updatedData.likelihood,
+          baseline_severity: updatedData.severity,
+          custom_metadata: {
+            linkedObjective: updatedData.linkedObjective,
+            treatmentType: updatedData.treatmentType,
+            change_type: "UPDATE",
+            proposed_changes: updatedData,
+            author_id: employee?.id,
+          },
         },
       })
-      .eq("id", id)
-    setSaving(false)
-    if (error) { toast.error(`Save failed: ${error.message}`); return }
-    setRisk(updatedData)
-    toast.success(`Risk "${updatedData.title}" has been updated.`)
+      toast.success(`Edit request for "${updatedData.title}" submitted for approval.`)
+    } catch (err: any) {
+      toast.error(`Save failed: ${err.message}`)
+    }
   }
 
   const scoreColor = getScoreColor(risk.riskScore)

@@ -132,9 +132,11 @@ export function TopHeader() {
     // Route
     if (notif.approval_request_id) {
       if (notif.type === 'ACTION_REQUIRED') {
-        router.push('/department/approvals')
+        router.push('/department/approvals?tab=inbox')
+      } else if (notif.type === 'WORKFLOW_REJECTED') {
+        router.push('/department/approvals?tab=approved')
       } else {
-        router.push('/department/requests')
+        router.push('/department/approvals?tab=approved')
       }
     }
   }

@@ -51,14 +51,29 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
         objQ = objQ.eq('department_id', departmentId)
       }
 
-      // 3. Query KPIs: COUNT(all KPI records)
-      let kpiQ = supabase
+      // 3. Query KPIs: COUNT(all KPI records for department)
+      const { data: rawKpis } = await supabase
         .from('kpi_definitions')
-        .select('id, processes!inner(department_id)', { count: 'exact' })
+        .select(`
+          id,
+          kpi_name,
+          target_value,
+          unit,
+          custom_metadata,
+          processes (
+            id,
+            process_name,
+            department_id
+          )
+        `)
         .eq('is_active', true)
 
+      let kpis = rawKpis || []
       if (departmentId && departmentId !== 'ALL') {
-        kpiQ = kpiQ.eq('processes.department_id', departmentId)
+        kpis = kpis.filter((k: any) => {
+          const deptId = k.processes?.department_id || k.custom_metadata?.departmentId || k.custom_metadata?.department_id
+          return !deptId || deptId === departmentId
+        })
       }
 
       // 4. Query Risks: COUNT(risks where status = active/open)
@@ -78,10 +93,10 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
         riskQ = riskQ.eq('risk_procedures.department_id', departmentId)
       }
 
-      const [objsRes, kpisRes, risksRes] = await Promise.all([objQ, kpiQ, riskQ])
+      const [objsRes, risksRes] = await Promise.all([objQ, riskQ])
 
       const objTotal = objsRes.count || objsRes.data?.length || 0
-      const kpiTotal = kpisRes.count || kpisRes.data?.length || 0
+      const kpiTotal = kpis.length
       const riskTotal = risksRes.count || risksRes.data?.length || 0
 
       // Calculate Objectives Achieved: COUNT(objectives where Status vs Target = "Achieved")
@@ -103,19 +118,59 @@ export function OverviewCards({ period, departmentId, refreshKey }: { period: st
 
       // Calculate KPIs Achieved: COUNT(KPIs where actual performance meets or exceeds target)
       let kpiAchievedCount = 0
-      if (kpisRes.data && kpisRes.data.length > 0 && cycleIds.length > 0) {
-        const kpiIds = kpisRes.data.map((k: any) => k.id)
-        const { data: measurements } = await supabase
-          .from('kpi_measurements')
-          .select('kpi_id, status')
-          .in('kpi_id', kpiIds)
-          .in('report_cycle_id', cycleIds)
-          .eq('status', 'Achieved')
+      if (kpis.length > 0) {
+        const kpiIds = kpis.map((k: any) => k.id)
+        let measurements: any[] = []
 
-        if (measurements) {
-          const uniqueKpisAchieved = new Set(measurements.map((m: any) => m.kpi_id))
-          kpiAchievedCount = uniqueKpisAchieved.size
+        if (cycleIds.length > 0) {
+          const { data: mData } = await supabase
+            .from('kpi_measurements')
+            .select('kpi_id, actual_value, status, achievement_percentage, report_cycle_id')
+            .in('kpi_id', kpiIds)
+            .in('report_cycle_id', cycleIds)
+          if (mData) measurements = mData
         }
+
+        if (measurements.length === 0) {
+          const { data: mData } = await supabase
+            .from('kpi_measurements')
+            .select('kpi_id, actual_value, status, achievement_percentage, report_cycle_id')
+            .in('kpi_id', kpiIds)
+            .order('created_at', { ascending: false })
+          if (mData) measurements = mData
+        }
+
+        kpis.forEach((k: any) => {
+          const m = measurements.find((meas: any) => meas.kpi_id === k.id)
+          const rawActual = m?.actual_value ?? k.custom_metadata?.actual ?? null
+          const actualStr = rawActual !== null && rawActual !== undefined ? String(rawActual).trim() : ""
+          const hasActual = actualStr !== "" && actualStr !== "-" && actualStr !== "null" && actualStr !== "undefined"
+
+          const parseNum = (val: string) => {
+            const cleaned = String(val).replace(/[^0-9.-]/g, "")
+            const num = parseFloat(cleaned)
+            return isNaN(num) ? null : num
+          }
+
+          const targetNum = parseNum(k.target_value ?? "")
+          const actualNum = hasActual ? parseNum(actualStr) : null
+          const direction = (k.custom_metadata?.direction || k.custom_metadata?.measurement_direction || "").toUpperCase()
+          const rawStatus = (m?.status || k.custom_metadata?.status || "").trim().toLowerCase()
+
+          let isAchieved = false
+          if (rawStatus === "achieved" || rawStatus === "success") {
+            isAchieved = true
+          } else if (hasActual && targetNum !== null && actualNum !== null) {
+            if (direction === "LOWER_IS_BETTER") {
+              if (actualNum <= targetNum) isAchieved = true
+            } else if (targetNum === 0) {
+              if (actualNum === 0) isAchieved = true
+            } else {
+              if (actualNum >= targetNum) isAchieved = true
+            }
+          }
+          if (isAchieved) kpiAchievedCount++
+        })
       }
 
       // Calculate Risks: High/Critical & Requiring Action

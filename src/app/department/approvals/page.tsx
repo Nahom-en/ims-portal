@@ -3,7 +3,7 @@
 
 import { ScrollableTableWrapper } from "@/components/shared/ScrollableTableWrapper"
 import { TableSkeleton } from "@/components/shared/TableSkeleton"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { 
@@ -18,7 +18,8 @@ import {
   CaretDown,
   MagnifyingGlass,
   Funnel,
-  ChatCircleDots
+  ChatCircleDots,
+  ArrowClockwise
 } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +40,7 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
 import { useEmployee } from "@/lib/employee-context"
 
@@ -63,9 +65,14 @@ interface ApprovalItem {
 }
 
 export default function ApprovalsPage() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const initialTab = tabParam === "approved" ? "approved" : tabParam === "outbox" ? "outbox" : "inbox"
+
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"inbox" | "outbox">("inbox")
+  const [activeTab, setActiveTab] = useState<"inbox" | "approved" | "outbox">(initialTab)
   const [inboxItems, setInboxItems] = useState<ApprovalItem[]>([])
+  const [approvedItems, setApprovedItems] = useState<ApprovalItem[]>([])
   const [outboxItems, setOutboxItems] = useState<ApprovalItem[]>([])
   const [rejectingItem, setRejectingItem] = useState<ApprovalItem | null>(null)
   const [rejectReason, setRejectReason] = useState("")
@@ -77,8 +84,6 @@ export default function ApprovalsPage() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("ALL")
   const [statusFilter, setStatusFilter] = useState("ALL")
-  const [activeQuarter, setActiveQuarter] = useState("ALL")
-  const [activeYear, setActiveYear] = useState("ALL")
 
   const employee = useEmployee()
   const employeeId = employee?.id
@@ -152,7 +157,25 @@ export default function ApprovalsPage() {
           })
         }
 
+        // 6. Fetch actions where current employee approved
+        const { data: myApprovedActions } = await supabase
+          .from('approval_actions')
+          .select('approval_request_id, created_at, comment')
+          .eq('actor_id', employeeId)
+          .eq('action', 'APPROVED')
+          .order('created_at', { ascending: false })
+
+        const myApprovedMap = new Map<string, any>()
+        if (myApprovedActions) {
+          myApprovedActions.forEach(a => {
+            if (!myApprovedMap.has(a.approval_request_id)) {
+              myApprovedMap.set(a.approval_request_id, a)
+            }
+          })
+        }
+
         const inbox: ApprovalItem[] = []
+        const approved: ApprovalItem[] = []
         const outbox: ApprovalItem[] = []
 
         for (const r of reqs || []) {
@@ -290,6 +313,15 @@ export default function ApprovalsPage() {
             inbox.push(mapped)
           }
 
+          // Approved (Chain Tracking): User previously approved, or user is department manager and item is progressing/completed
+          const hasMyApproval = myApprovedMap.has(r.id)
+          const isDeptManager = deptManagerId === employeeId
+          const isPublished = statusLabel === 'Published'
+
+          if (hasMyApproval || (isDeptManager && (r.current_step_index > -1 || isPublished))) {
+            approved.push(mapped)
+          }
+
           // My Requests (Outbox): Anything requested by this user
           if (r.requested_by === employeeId) {
             outbox.push(mapped)
@@ -297,6 +329,7 @@ export default function ApprovalsPage() {
         }
 
         setInboxItems(inbox)
+        setApprovedItems(approved)
         setOutboxItems(outbox)
       } catch (err) {
         console.error("Failed to load approvals data:", err)
@@ -379,22 +412,14 @@ export default function ApprovalsPage() {
   }
 
   // Filter items based on user criteria
-  const filterList = (items: ApprovalItem[], isOutbox = false) => {
+  const filterList = (items: ApprovalItem[], checkStatus = false) => {
     return items.filter(item => {
-      // Quarter filter
-      if (activeQuarter !== "ALL" && item.targetQuarter && item.targetQuarter !== activeQuarter) {
-        return false
-      }
-      // Year filter
-      if (activeYear !== "ALL" && item.targetYear && item.targetYear !== activeYear) {
-        return false
-      }
       // Type filter
       if (typeFilter !== "ALL" && item.type.toLowerCase() !== typeFilter.toLowerCase()) {
         return false
       }
-      // Status filter (for outbox)
-      if (isOutbox && statusFilter !== "ALL") {
+      // Status filter (for outbox & approved)
+      if (checkStatus && statusFilter !== "ALL") {
         if (statusFilter === "PENDING" && item.workflowStatus !== "Pending Approval") return false
         if (statusFilter === "PUBLISHED" && item.workflowStatus !== "Published") return false
         if (statusFilter === "REJECTED" && item.workflowStatus !== "Rejected") return false
@@ -414,8 +439,9 @@ export default function ApprovalsPage() {
     })
   }
 
-  const filteredInbox = useMemo(() => filterList(inboxItems, false), [inboxItems, activeQuarter, activeYear, typeFilter, search]) // eslint-disable-line react-hooks/exhaustive-deps
-  const filteredOutbox = useMemo(() => filterList(outboxItems, true), [outboxItems, activeQuarter, activeYear, typeFilter, statusFilter, search]) // eslint-disable-line react-hooks/exhaustive-deps
+  const filteredInbox = filterList(inboxItems, false)
+  const filteredApproved = filterList(approvedItems, true)
+  const filteredOutbox = filterList(outboxItems, true)
 
   return (
     <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
@@ -427,31 +453,20 @@ export default function ApprovalsPage() {
             <h1 className="text-2xl font-bold tracking-tight">Approvals Hub</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Review pending departmental items or monitor the status of your submitted requests.
+            Review pending departmental items or monitor the status of approved requests along the workflow chain.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
-            <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue placeholder="Quarter" />
-            </SelectTrigger>
-            <SelectContent>
-              {["ALL", "Q1", "Q2", "Q3", "Q4"].map((q) => (
-                <SelectItem key={q} value={q}>{q === "ALL" ? "All Qs" : q}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
-            <SelectTrigger className="w-[100px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-              <SelectValue placeholder="Year" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Years</SelectItem>
-              {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
-                <SelectItem key={y} value={y}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRefreshIndex(prev => prev + 1)}
+            disabled={isLoading || isProcessing}
+            className="h-9 gap-1.5 text-xs font-medium"
+          >
+            <ArrowClockwise className={`h-4 w-4 ${isLoading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} />
+            <span>Refresh</span>
+          </Button>
         </div>
       </div>
 
@@ -470,6 +485,22 @@ export default function ApprovalsPage() {
           {inboxItems.length > 0 && (
             <Badge className="ml-1 bg-destructive hover:bg-destructive text-white border-transparent text-xs py-0 px-1.5 h-5">
               {inboxItems.length}
+            </Badge>
+          )}
+        </button>
+        <button
+          className={`flex items-center gap-2 pb-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+            activeTab === "approved" 
+              ? "border-primary text-primary" 
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setActiveTab("approved")}
+        >
+          <CheckCircle className="h-4 w-4" />
+          Approved
+          {approvedItems.length > 0 && (
+            <Badge variant="secondary" className="ml-1 text-xs py-0 px-1.5 h-5">
+              {approvedItems.length}
             </Badge>
           )}
         </button>
@@ -518,7 +549,7 @@ export default function ApprovalsPage() {
             </Select>
           </div>
 
-          {activeTab === "outbox" && (
+          {(activeTab === "outbox" || activeTab === "approved") && (
             <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
               <SelectTrigger className="w-[125px] h-9 text-xs">
                 <SelectValue placeholder="All Statuses" />
@@ -536,7 +567,7 @@ export default function ApprovalsPage() {
 
       {/* ── Tab Content ── */}
       <div className="rounded-md border bg-card shadow-sm overflow-hidden">
-        {activeTab === "inbox" ? (
+        {activeTab === "inbox" && (
           <TrayTable 
             items={filteredInbox} 
             onApprove={handleApprove}
@@ -548,7 +579,11 @@ export default function ApprovalsPage() {
             isProcessing={isProcessing}
             isLoading={isLoading}
           />
-        ) : (
+        )}
+        {activeTab === "approved" && (
+          <ApprovedTable items={filteredApproved} isLoading={isLoading} />
+        )}
+        {activeTab === "outbox" && (
           <OutboxTable items={filteredOutbox} isLoading={isLoading} />
         )}
       </div>
@@ -900,6 +935,147 @@ function OutboxTable({ items, isLoading }: { items: ApprovalItem[], isLoading?: 
                       With {item.currentStepLabel}
                       {item.currentStepApproverName ? ` (${item.currentStepApproverName})` : ''}
                     </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+                  {item.lastUpdated}
+                </TableCell>
+                <TableCell className="text-right pr-6 whitespace-nowrap">
+                  <Link href={item.url}>
+                    <Button variant="ghost" size="sm" className="h-8 text-primary hover:text-primary hover:bg-primary/10 text-xs font-medium">
+                      Track <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </ScrollableTableWrapper>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Approved Requests Table (ApprovedTable)
+   ───────────────────────────────────────────────────────────────────────────── */
+function ApprovedTable({ items, isLoading }: { items: ApprovalItem[]; isLoading?: boolean }) {
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (!sortKey) return 0
+    let aVal = (a as any)[sortKey]
+    let bVal = (b as any)[sortKey]
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+    if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
+  if (!isLoading && items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+          <CheckCircle className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium text-foreground">No approved requests yet</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+          Requests you have approved or that are progressing through your department workflow will appear here.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <ScrollableTableWrapper>
+      <Table className="min-w-full">
+        <TableHeader className="bg-muted/50 sticky top-0 z-10 border-b">
+          <TableRow>
+            <TableHead className="h-10 pl-6 cursor-pointer min-w-[100px]" onClick={() => handleSort('type')}>
+              <div className="flex items-center gap-1 font-semibold">Type {sortKey === 'type' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+            </TableHead>
+            <TableHead className="h-10 cursor-pointer min-w-[280px]" onClick={() => handleSort('name')}>
+              <div className="flex items-center gap-1 font-semibold">Item {sortKey === 'name' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+            </TableHead>
+            <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('processName')}>
+              <div className="flex items-center gap-1 font-semibold">Department {sortKey === 'processName' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+            </TableHead>
+            <TableHead className="h-10 cursor-pointer min-w-[140px]" onClick={() => handleSort('author')}>
+              <div className="flex items-center gap-1 font-semibold">Submitted By {sortKey === 'author' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+            </TableHead>
+            <TableHead className="h-10 cursor-pointer min-w-[180px]" onClick={() => handleSort('workflowStatus')}>
+              <div className="flex items-center gap-1 font-semibold">Chain Status {sortKey === 'workflowStatus' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+            </TableHead>
+            <TableHead className="h-10 cursor-pointer min-w-[110px]" onClick={() => handleSort('lastUpdated')}>
+              <div className="flex items-center gap-1 font-semibold">Date {sortKey === 'lastUpdated' && (sortDir === 'asc' ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />)}</div>
+            </TableHead>
+            <TableHead className="h-10 text-right pr-6 min-w-[100px] font-semibold">Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableSkeleton columns={7} rows={3} />
+          ) : (
+            sortedItems.map((item) => (
+              <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
+                <TableCell className="pl-6 whitespace-nowrap">
+                  <Badge 
+                    variant="outline" 
+                    className={
+                      item.type === "Objective" 
+                        ? "text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-800 text-xs font-semibold" 
+                        : item.type === "Kpi" 
+                        ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 text-xs font-semibold"
+                        : "text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 text-xs font-semibold"
+                    }
+                  >
+                    {item.type}
+                  </Badge>
+                </TableCell>
+                <TableCell className="font-medium max-w-[320px]">
+                  <span className="truncate block" title={item.name}>
+                    {item.name}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                  {item.processName}
+                </TableCell>
+                <TableCell className="text-sm whitespace-nowrap">
+                  {item.author}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {item.workflowStatus === "Published" ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 text-xs font-semibold gap-1">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                      Fully Published
+                    </Badge>
+                  ) : item.workflowStatus === "Rejected" ? (
+                    <div className="flex flex-col gap-0.5">
+                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 text-xs font-semibold gap-1 w-fit">
+                        <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                        Rejected Downstream
+                      </Badge>
+                      {item.rejectionFeedback && (
+                        <span className="text-xs text-muted-foreground italic max-w-[240px] truncate" title={item.rejectionFeedback}>
+                          &quot;{item.rejectionFeedback}&quot;
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <Badge className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800 text-xs font-semibold gap-1">
+                      In Review ({item.currentStepLabel})
+                    </Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">

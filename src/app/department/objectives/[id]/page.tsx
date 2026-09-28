@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import ObjectiveForm, { ObjectiveFormData, ObjectiveStatus } from "@/components/forms/ObjectiveForm"
 import { createClient } from "@/lib/supabase/client"
 import { useEmployee } from "@/lib/employee-context"
+import { submitForApproval } from "@/lib/workflow"
 
 // ── Status Badge Renderer ──
 function StatusBadge({ status }: { status: ObjectiveStatus }) {
@@ -40,12 +41,10 @@ export default function ObjectiveDetailsPage() {
   const [activeTab, setActiveTab] = useState<"plan" | "progress" | "kpis" | "history">("plan")
   const [objective, setObjective] = useState<ObjectiveFormData | null>(null)
   const [approvalLogs, setApprovalLogs] = useState<any[]>([])
-  const [cycleStatus, setCycleStatus] = useState<string | null>(null)
   const [workflowSteps, setWorkflowSteps] = useState<any[]>([])
   const [processes, setProcesses] = useState<any[]>([])
   const [availableKpis, setAvailableKpis] = useState<{name: string, processName: string}[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   
   const [isEditingPlanRequest, setIsEditingPlanRequest] = useState(false)
   const [updateDataPending, setUpdateDataPending] = useState<ObjectiveFormData | null>(null)
@@ -98,7 +97,6 @@ export default function ObjectiveDetailsPage() {
           .maybeSingle()
 
         if (cycle) {
-          setCycleStatus(cycle.workflow_status)
           currentStepIndex = cycle.current_step_index ?? 0
           if (cycle.workflow_status === "APPROVED") currentWorkflowStatus = "Published"
           else if (cycle.workflow_status === "PENDING_APPROVAL" || cycle.workflow_status === "PENDING") currentWorkflowStatus = "Pending Approval"
@@ -166,33 +164,33 @@ export default function ObjectiveDetailsPage() {
 
 
   const handleUpdate = async (updatedData: ObjectiveFormData, note?: string) => {
-    setSaving(true)
-    
-    // Instead of updating directly, we create an approval request
-    const { error } = await supabase
-      .from("approval_requests")
-      .insert({
-        department_id: departmentId,
-        entity_type: "objective",
-        entity_id: objective.id,
-        requested_by: employee?.id || null,
-        status: "PENDING_APPROVAL",
-        current_step_index: 1,
-        custom_metadata: {
-          change_type: "UPDATE",
-          justification: note || "",
-          proposed_changes: JSON.stringify(updatedData)
-        }
+    try {
+      await submitForApproval(supabase, {
+        entityType: "objective",
+        entityId: objective.id,
+        departmentId: departmentId || employee?.department_id || "",
+        requestedBy: employee?.id || "",
+        payload: {
+          id: objective.id,
+          objective_description: updatedData.name,
+          success_criteria: updatedData.successCriteria,
+          custom_metadata: {
+            change_type: "UPDATE",
+            justification: note || "",
+            proposed_changes: JSON.stringify(updatedData),
+            author_id: employee?.id,
+          },
+        },
       })
 
-    setSaving(false)
-    if (error) { toast.error(`Save failed: ${error.message}`); return }
-    
-    toast.success("Edit submitted for approval.")
-    setShowJustificationModal(false)
-    setUpdateDataPending(null)
-    setJustification("")
-    setIsEditingPlanRequest(false)
+      toast.success("Edit submitted for approval.")
+      setShowJustificationModal(false)
+      setUpdateDataPending(null)
+      setJustification("")
+      setIsEditingPlanRequest(false)
+    } catch (err: any) {
+      toast.error(`Save failed: ${err.message}`)
+    }
   }
 
   const onFormSubmit = (data: ObjectiveFormData) => {

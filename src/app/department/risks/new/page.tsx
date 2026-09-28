@@ -10,6 +10,7 @@ import { DetailSkeleton } from "@/components/shared/DetailSkeleton"
 import RiskForm, { RiskFormData, AvailableObjective, AvailableEmployee, ProcessItem } from "@/components/forms/RiskForm"
 import { createClient } from "@/lib/supabase/client"
 import { useEmployee } from "@/lib/employee-context"
+import { submitForApproval } from "@/lib/workflow"
 
 export default function CreateRiskPage() {
   const router = useRouter()
@@ -87,13 +88,21 @@ export default function CreateRiskPage() {
   }, [supabase])
 
   const handleCreate = async (data: RiskFormData) => {
+    if (!employee) {
+      toast.error("Employee context not loaded.")
+      return
+    }
+
     setSaving(true)
 
     const ownerName = employees.find((e) => e.id === data.ownerId)?.name || data.ownerName || ""
+    const targetDeptId = employee.department_id || ""
+    const entityId = crypto.randomUUID()
 
-    const { error } = await supabase.from("risk_definitions").insert({
+    const payload = {
+      id: entityId,
       procedure_id: data.processId || null,
-      owner_id: data.ownerId || employee?.id || null,
+      owner_id: data.ownerId || employee.id,
       risk_statement: data.title,
       affected_assets: data.description,
       threat: data.description,
@@ -102,6 +111,7 @@ export default function CreateRiskPage() {
       baseline_likelihood: data.likelihood,
       baseline_severity: data.severity,
       custom_metadata: {
+        department_id: targetDeptId,
         description: data.description,
         processId: data.processId,
         processName: data.processName,
@@ -111,23 +121,32 @@ export default function CreateRiskPage() {
         riskResponse: data.riskResponse || "Mitigate",
         riskRating: data.riskRating,
         actionStatus: "Pending",
+        change_type: "CREATE",
+        author_id: employee.id,
       },
-      is_active: true,
-    })
-
-    setSaving(false)
-
-    if (error) {
-      console.error("Supabase INSERT error:", error)
-      toast.error(`Failed to save: ${error.message || 'Database insert failed'}`)
-      return
+      is_active: false,
     }
 
-    toast.success(`"${data.title}" has been logged successfully.`)
-    router.push("/department/risks")
+    try {
+      await submitForApproval(supabase, {
+        entityType: "risk",
+        entityId: entityId,
+        departmentId: targetDeptId,
+        requestedBy: employee.id,
+        payload: payload,
+      })
+
+      toast.success(`"${data.title}" submitted for approval.`)
+      router.push("/department/risks")
+    } catch (err: any) {
+      console.error("Workflow submission error:", err)
+      toast.error(`Failed to submit: ${err.message || "Approval submission failed"}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (loadingLookups) return <DetailSkeleton />
+  if (loadingLookups || !employee) return <DetailSkeleton />
 
   return (
     <div className="flex-1 p-4 md:p-6 w-full max-w-3xl mx-auto space-y-6">

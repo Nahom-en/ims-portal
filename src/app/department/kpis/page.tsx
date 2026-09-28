@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { useEmployee } from "@/lib/employee-context";
 import { DepartmentFilter } from "@/components/shared/DepartmentFilter";
+import { submitForApproval } from "@/lib/workflow";
 
 interface KpiRow {
   id: string;
@@ -324,12 +325,28 @@ export default function KPITrackingPage() {
     }
   };
 
-  const handleDelete = () => {
-    if (kpiToDelete) {
-      setData(data.filter(kpi => kpi.id !== kpiToDelete.id));
-      toast.success(`"${kpiToDelete.name}" was permanently deleted.`);
-      setKpiToDelete(null);
+  const handleDelete = async () => {
+    if (!kpiToDelete) return;
+    try {
+      await submitForApproval(supabase, {
+        entityType: "kpi",
+        entityId: kpiToDelete.id,
+        departmentId: employee?.department_id || "",
+        requestedBy: employee?.id || "",
+        payload: {
+          id: kpiToDelete.id,
+          custom_metadata: {
+            change_type: "DELETE",
+            kpiName: kpiToDelete.name,
+            author_id: employee?.id,
+          },
+        },
+      });
+      toast.success(`Deletion request for "${kpiToDelete.name}" submitted for approval.`);
+    } catch (err: any) {
+      toast.error(`Delete request failed: ${err.message}`);
     }
+    setKpiToDelete(null);
   };
 
   // Filter KPI records before grouping

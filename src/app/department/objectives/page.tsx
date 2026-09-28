@@ -33,6 +33,7 @@ import { BulkExportToolbar } from "@/components/shared/BulkExportToolbar"
 import { useEmployee } from "@/lib/employee-context"
 import { DepartmentFilter } from "@/components/shared/DepartmentFilter"
 import { AlertDialog } from "@/components/ui/alert-dialog"
+import { submitForApproval } from "@/lib/workflow"
 
 export default function ObjectivesPage() {
   const router = useRouter()
@@ -242,25 +243,24 @@ export default function ObjectivesPage() {
       return
     }
 
-    const { error } = await supabase
-      .from("approval_requests")
-      .insert({
-        department_id: objToDelete.department_id || departmentId,
-        entity_type: "objective",
-        entity_id: objToDelete.id,
-        requested_by: employee?.id || null,
-        status: "PENDING_APPROVAL",
-        current_step_index: 1,
-        custom_metadata: {
-          change_type: "DELETE",
-          justification: justification.trim() || undefined
-        }
+    try {
+      await submitForApproval(supabase, {
+        entityType: "objective",
+        entityId: objToDelete.id,
+        departmentId: objToDelete.department_id || departmentId || employee?.department_id || "",
+        requestedBy: employee?.id || "",
+        payload: {
+          id: objToDelete.id,
+          custom_metadata: {
+            change_type: "DELETE",
+            justification: justification.trim() || undefined,
+            author_id: employee?.id,
+          },
+        },
       })
-
-    if (error) {
-      toast.error(`Delete request failed: ${error.message}`)
-    } else {
       toast.success("Deletion request submitted for approval.")
+    } catch (err: any) {
+      toast.error(`Delete request failed: ${err.message}`)
     }
     setObjToDelete(null)
     setJustification("")

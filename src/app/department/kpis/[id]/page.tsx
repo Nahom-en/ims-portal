@@ -13,6 +13,8 @@ import { WorkflowStepper } from "@/components/shared/WorkflowStepper"
 import { Badge } from "@/components/ui/badge"
 import KpiForm, { KpiFormData, KpiStatus } from "@/components/forms/KpiForm"
 import { createClient } from "@/lib/supabase/client"
+import { useEmployee } from "@/lib/employee-context"
+import { submitForApproval } from "@/lib/workflow"
 
 function StatusBadge({ status }: { status: KpiStatus }) {
   switch (status) {
@@ -31,6 +33,7 @@ export default function KpiDetailsPage() {
   const id = params.id as string
 
   const supabase = createClient()
+  const employee = useEmployee()
   const [activeTab, setActiveTab] = useState<"definition" | "measurement" | "history">("definition")
   const [kpi, setKpi] = useState<KpiFormData | null>(null)
   const [approvalLogs, setApprovalLogs] = useState<any[]>([])
@@ -38,7 +41,6 @@ export default function KpiDetailsPage() {
   const [workflowSteps, setWorkflowSteps] = useState<any[]>([])
   const [processes, setProcesses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     async function fetchKpi() {
@@ -144,24 +146,31 @@ export default function KpiDetailsPage() {
 
 
   const handleUpdate = async (updatedData: KpiFormData) => {
-    setSaving(true)
-    const { error } = await supabase
-      .from("kpi_definitions")
-      .update({
-        kpi_name: updatedData.name,
-        target_value: updatedData.target,
-        source: updatedData.dataSource ?? "Manual",
-        custom_metadata: {
-          responsibility: updatedData.responsibility,
-          analysisMethodology: updatedData.analysisMethodology,
-          customFields: updatedData.customFields ?? [],
+    try {
+      await submitForApproval(supabase, {
+        entityType: "kpi",
+        entityId: id,
+        departmentId: updatedData.departmentId || employee?.department_id || "",
+        requestedBy: employee?.id || "",
+        payload: {
+          id: id,
+          kpi_name: updatedData.name,
+          target_value: updatedData.target,
+          source: updatedData.dataSource ?? "Manual",
+          custom_metadata: {
+            responsibility: updatedData.responsibility,
+            analysisMethodology: updatedData.analysisMethodology,
+            customFields: updatedData.customFields ?? [],
+            change_type: "UPDATE",
+            proposed_changes: updatedData,
+            author_id: employee?.id,
+          },
         },
       })
-      .eq("id", id)
-    setSaving(false)
-    if (error) { toast.error(`Save failed: ${error.message}`); return }
-    setKpi(updatedData)
-    toast.success(`KPI "${updatedData.name}" has been updated.`)
+      toast.success(`Edit request for "${updatedData.name}" submitted for approval.`)
+    } catch (err: any) {
+      toast.error(`Save failed: ${err.message}`)
+    }
   }
 
   return (

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useEmployee } from "@/lib/employee-context";
 import { DepartmentFilter } from "@/components/shared/DepartmentFilter";
+import { submitForApproval } from "@/lib/workflow";
 
 export interface RiskRow {
   id: string;
@@ -423,12 +424,28 @@ export default function RiskRegisterPage() {
     }
   };
 
-  const handleDelete = () => {
-    if (riskToDelete) {
-      setData(data.filter(r => r.id !== riskToDelete.id));
-      toast.success(`"${riskToDelete.title}" was permanently deleted.`);
-      setRiskToDelete(null);
+  const handleDelete = async () => {
+    if (!riskToDelete) return;
+    try {
+      await submitForApproval(supabase, {
+        entityType: "risk",
+        entityId: riskToDelete.id,
+        departmentId: employee?.department_id || "",
+        requestedBy: employee?.id || "",
+        payload: {
+          id: riskToDelete.id,
+          custom_metadata: {
+            change_type: "DELETE",
+            riskTitle: riskToDelete.title,
+            author_id: employee?.id,
+          },
+        },
+      });
+      toast.success(`Deletion request for "${riskToDelete.title}" submitted for approval.`);
+    } catch (err: any) {
+      toast.error(`Delete request failed: ${err.message}`);
     }
+    setRiskToDelete(null);
   };
 
   return (
