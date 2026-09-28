@@ -90,9 +90,11 @@ export default function KPITrackingPage() {
           if (mData) measurements = mData
         }
 
-        const mapped = kpis.map((k: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+        const mapped = kpis.map((k: any) => {
           const m = measurements.find((meas: any) => meas.kpi_id === k.id)
-          const isAchieved = m?.status === 'Achieved'
+          const actualStr = String(m?.actual_value || '').trim()
+          const hasActual = actualStr !== '' && actualStr !== '-' && actualStr !== 'null'
+          const isAchieved = Boolean(hasActual && m?.status === 'Achieved')
           return {
             id: k.id,
             name: k.kpi_name,
@@ -100,8 +102,9 @@ export default function KPITrackingPage() {
             responsibility: "Dept Head",
             target: `${k.target_value}${k.unit ? ` ${k.unit}` : ''}`,
             actual: m?.actual_value || "",
-            achievementPercentage: isAchieved ? "100" : (m?.actual_value ? "50" : ""),
-            status: m?.status || "Pending",
+            achievementPercentage: isAchieved ? "100" : (hasActual ? "50" : ""),
+            status: isAchieved ? "Achieved" : (m?.status || "Pending"),
+            isAchieved,
             justification: m?.justification_for_deviation || ""
           }
         })
@@ -233,7 +236,7 @@ export default function KPITrackingPage() {
 
         {(() => {
           const total = data.length;
-          const kpisAchieved = data.filter(d => d.status === 'Achieved').length;
+          const kpisAchieved = data.filter(d => d.isAchieved).length;
           const achievementRate = total > 0 ? Math.round((kpisAchieved / total) * 100) : 0;
 
           return (
@@ -246,17 +249,17 @@ export default function KPITrackingPage() {
                     <Tooltip>
                       <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                       <TooltipContent>
-                        <p className="max-w-[200px] text-xs">Count of all KPIs being monitored.</p>
+                        <p className="max-w-[200px] text-xs">Count of all KPI records for the selected reporting period.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{total}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Total monitored KPIs</p>
+                  <p className="text-xs text-muted-foreground mt-1">For selected period</p>
                   <div className="mt-3">
                     <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
-                      {total} Total
+                      {total} Total KPIs
                     </Badge>
                   </div>
                 </CardContent>
@@ -280,7 +283,7 @@ export default function KPITrackingPage() {
                     {kpisAchieved}
                   </div>
                   <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
-                    Meeting or exceeding target
+                    {kpisAchieved} of {total} KPIs achieved
                   </p>
                   <div className="mt-3">
                     <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">

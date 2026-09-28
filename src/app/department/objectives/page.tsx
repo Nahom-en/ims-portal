@@ -87,7 +87,7 @@ export default function ObjectivesPage() {
         if (cycleIds.length > 0 && objs.length > 0) {
           const objIds = objs.map(o => o.id)
           const { data: tr } = await supabase.from('objective_tracking')
-            .select('objective_id, status_vs_target')
+            .select('objective_id, status_vs_target, followup_action, reasons_for_deviation')
             .in('objective_id', objIds)
             .in('report_cycle_id', cycleIds)
           if (tr) trackingData = tr
@@ -95,14 +95,23 @@ export default function ObjectivesPage() {
         
         setData(objs.map(o => {
           const track = trackingData.find((t: any) => t.objective_id === o.id)
+          const status = track ? track.status_vs_target : 'No Data'
+          const hasFollowupAction = Boolean(track?.followup_action && String(track.followup_action).trim().length > 0)
+          const hasDeviation = Boolean(track?.reasons_for_deviation && String(track.reasons_for_deviation).trim().length > 0)
+          const isAchieved = status === 'Achieved'
+          const requiresAction = !isAchieved && (hasFollowupAction || hasDeviation || (status !== 'No Data' && status !== ''))
+
           return {
             id: o.id,
             name: o.objective_description,
             department_id: o.department_id,
             process: (o.custom_metadata as any)?.processNames?.join(", ") || 'N/A',
             author_id: (o.custom_metadata as any)?.author_id,
-            status: track ? track.status_vs_target : 'No Data',
+            status,
             targetDate: o.end_date || 'N/A',
+            followupAction: track?.followup_action || null,
+            hasFollowupAction,
+            requiresAction,
           }
         }))
       }
@@ -228,25 +237,27 @@ export default function ObjectivesPage() {
         const total = data.length;
         const achieved = data.filter(d => d.status === 'Achieved').length;
         const achievementRate = total > 0 ? Math.round((achieved / total) * 100) : 0;
+        const requiringAction = data.filter(d => d.requiresAction).length;
+        const followupActionsCount = data.filter(d => d.hasFollowupAction).length;
         
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Total IMS Objectives */}
+            {/* Card 1: Total Objectives */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total IMS Objectives</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Objectives</CardTitle>
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                     <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Count of all objective records.</p>
+                      <p className="max-w-[200px] text-xs">Total number of objective records for the selected period.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{total}</div>
-                <p className="text-xs text-muted-foreground mt-1">Total defined objectives</p>
+                <p className="text-xs text-muted-foreground mt-1">For selected period</p>
                 <div className="mt-3">
                   <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
                     {total} Total Objectives
@@ -263,45 +274,51 @@ export default function ObjectivesPage() {
                   <Tooltip>
                     <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                     <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Count of objectives where {activeQuarter} Status vs Target = Achieved.</p>
+                      <p className="max-w-[200px] text-xs">Count of objectives where Status vs Target = Achieved.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{achieved}</div>
-                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">{activeQuarter} Status = Achieved</p>
+                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                  {achieved} of {total} achieved
+                </p>
                 <div className="mt-3">
                   <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
-                    {achieved} Achieved
+                    {achievementRate}% Achievement Rate
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Card 3: Achievement Rate */}
-            <Card className="bg-blue-50/30 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/20">
+            {/* Card 3: Objectives Requiring Action */}
+            <Card className={requiringAction > 0 ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/20" : ""}>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">Achievement Rate</CardTitle>
+                <CardTitle className={`text-sm font-medium ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground'}`}>
+                  Objectives Requiring Action
+                </CardTitle>
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                     <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Achieved ÷ Total × 100</p>
+                      <p className="max-w-[200px] text-xs">Objectives with deviation from target requiring follow-up.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
-                  {achievementRate}%
+                <div className={`text-2xl font-bold ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : ''}`}>
+                  {requiringAction}
                 </div>
-                <div className="mt-3 h-1.5 w-full bg-blue-100 dark:bg-blue-950/50 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${achievementRate}%` }} />
-                </div>
-                <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-2">
-                  {achieved} of {total} objectives achieved
+                <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
+                  {requiringAction} {requiringAction === 1 ? 'objective requires' : 'objectives require'} follow-up
                 </p>
+                <div className="mt-3">
+                  <Badge variant="outline" className={`font-normal text-[10px] ${requiringAction > 0 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-amber-50 dark:hover:bg-amber-950/40`}>
+                    {followupActionsCount} Follow-up Actions
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           </div>

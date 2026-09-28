@@ -335,7 +335,7 @@ export default function RiskRegisterPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{totalActive}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Currently open registered risks</p>
+                  <p className="text-xs text-muted-foreground mt-1">Active registered risks</p>
                   <div className="mt-3">
                     <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
                       {totalActive} Active
@@ -365,7 +365,7 @@ export default function RiskRegisterPage() {
                     {highCritical}
                   </div>
                   <p className="text-xs text-rose-600/80 dark:text-rose-400/80 mt-1">
-                    Residual rating High or Critical
+                    Require management attention
                   </p>
                   <div className="mt-3">
                     <Badge variant="outline" className={`font-normal text-[10px] ${highCritical > 0 ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-rose-50 dark:hover:bg-rose-950/40`}>
