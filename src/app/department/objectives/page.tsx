@@ -282,190 +282,195 @@ export default function ObjectivesPage() {
   }
 
   return (
-    <div className="flex-1 p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto w-full relative">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Target className="h-6 w-6 text-primary dark:text-blue-500" />
-          <h1 className="text-2xl font-bold tracking-tight">Objectives</h1>
-        </div>
-                <div className="flex flex-wrap items-center gap-3">
-          {departmentFilter !== null && (
-            <DepartmentFilter value={departmentFilter} onChange={setDepartmentFilter} />
-          )}
+    <div className="flex-1 h-[calc(100vh-3.5rem)] flex flex-col p-4 md:p-6 overflow-hidden max-w-[1600px] mx-auto w-full relative">
+      {/* ── Fixed Top Controls (Stationary) ── */}
+      <div className="shrink-0 space-y-3 mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
-              <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-                <SelectValue />
+            <Target className="h-6 w-6 text-primary dark:text-blue-500" />
+            <h1 className="text-2xl font-bold tracking-tight">Objectives</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {departmentFilter !== null && (
+              <DepartmentFilter value={departmentFilter} onChange={setDepartmentFilter} />
+            )}
+            <div className="flex items-center gap-2">
+              <Select value={activeQuarter} onValueChange={(v) => v && setActiveQuarter(v)}>
+                <SelectTrigger className="w-[80px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Q1","Q2","Q3","Q4"].map((q) => (
+                    <SelectItem key={q} value={q}>{q}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
+                <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
+                    <SelectItem key={y} value={y}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => router.push("/department/objectives/new")} className="gap-2 h-9">
+              <Plus className="h-4 w-4" />
+              New Objective
+            </Button>
+          </div>
+        </div>
+
+        {(() => {
+          const total = data.length;
+          const achieved = data.filter(d => d.status === 'Achieved').length;
+          const achievementRate = total > 0 ? Math.round((achieved / total) * 100) : 0;
+          const requiringAction = data.filter(d => d.requiresAction).length;
+          const followupActionsCount = data.filter(d => d.hasFollowupAction).length;
+          
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Card 1: Total Objectives */}
+              <Card size="sm">
+                <CardHeader className="flex flex-row items-center justify-between pb-1 space-y-0">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Total Objectives</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Total number of objective records for the selected period.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="text-xl font-bold">{total}</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">For selected period</p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
+                      {total} Total Objectives
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 2: Objectives Achieved */}
+              <Card size="sm" className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
+                <CardHeader className="flex flex-row items-center justify-between pb-1 space-y-0">
+                  <CardTitle className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Objectives Achieved</CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Count of objectives where Status vs Target = Achieved.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{achieved}</div>
+                  <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                    {achieved} of {total} achieved
+                  </p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
+                      {achievementRate}% Achievement Rate
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Objectives Requiring Action */}
+              <Card size="sm" className={requiringAction > 0 ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/20" : ""}>
+                <CardHeader className="flex flex-row items-center justify-between pb-1 space-y-0">
+                  <CardTitle className={`text-xs font-medium ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground'}`}>
+                    Objectives Requiring Action
+                  </CardTitle>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px] text-xs">Objectives with deviation from target requiring follow-up.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className={`text-xl font-bold ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : ''}`}>
+                    {requiringAction}
+                  </div>
+                  <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-0.5">
+                    {requiringAction} {requiringAction === 1 ? 'objective requires' : 'objectives require'} follow-up
+                  </p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className={`font-normal text-[10px] ${requiringAction > 0 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-amber-50 dark:hover:bg-amber-950/40`}>
+                      {followupActionsCount} Follow-up Actions
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )
+        })()}
+
+        <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+          <div className="flex items-center gap-2 w-full max-w-sm relative">
+            <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
+            <Input 
+              placeholder="Search objectives..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 w-full h-9 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Funnel className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground font-medium">Filter</span>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[160px] h-9 text-sm">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                {["Q1","Q2","Q3","Q4"].map((q) => (
-                  <SelectItem key={q} value={q}>{q}</SelectItem>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="Success">Success</SelectItem>
+                <SelectItem value="Partially Achieved">Partially Achieved</SelectItem>
+                <SelectItem value="At Risk">At Risk</SelectItem>
+                <SelectItem value="Off Track">Off Track</SelectItem>
+                <SelectItem value="Missed">Missed</SelectItem>
+                <SelectItem value="No Review">No Review</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={processFilter} onValueChange={setProcessFilter}>
+              <SelectTrigger className="w-[180px] h-9 text-sm">
+                <SelectValue placeholder="Process" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Processes</SelectItem>
+                {Array.from(new Set(data.map(d => d.process))).sort().map(p => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={activeYear} onValueChange={(v) => v && setActiveYear(v)}>
-              <SelectTrigger className="w-[90px] h-9 text-sm bg-muted dark:bg-zinc-900 border-border dark:border-zinc-800">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString()).map((y) => (
-                  <SelectItem key={y} value={y}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
-          <Button onClick={() => router.push("/department/objectives/new")} className="gap-2 h-9">
-            <Plus className="h-4 w-4" />
-            New Objective
-          </Button>
         </div>
+
+        <BulkExportToolbar 
+          selectedIds={selectedIds} 
+          data={filteredData} 
+          columns={exportColumns} 
+          filename="objectives_export" 
+          onClearSelection={() => setSelectedIds([])} 
+        />
       </div>
 
-      {(() => {
-        const total = data.length;
-        const achieved = data.filter(d => d.status === 'Achieved').length;
-        const achievementRate = total > 0 ? Math.round((achieved / total) * 100) : 0;
-        const requiringAction = data.filter(d => d.requiresAction).length;
-        const followupActionsCount = data.filter(d => d.hasFollowupAction).length;
-        
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Total Objectives */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Objectives</CardTitle>
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Total number of objective records for the selected period.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{total}</div>
-                <p className="text-xs text-muted-foreground mt-1">For selected period</p>
-                <div className="mt-3">
-                  <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
-                    {total} Total Objectives
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card 2: Objectives Achieved */}
-            <Card className="bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Objectives Achieved</CardTitle>
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Count of objectives where Status vs Target = Achieved.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{achieved}</div>
-                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
-                  {achieved} of {total} achieved
-                </p>
-                <div className="mt-3">
-                  <Badge variant="outline" className="font-normal text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
-                    {achievementRate}% Achievement Rate
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card 3: Objectives Requiring Action */}
-            <Card className={requiringAction > 0 ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/20" : ""}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className={`text-sm font-medium ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground'}`}>
-                  Objectives Requiring Action
-                </CardTitle>
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[200px] text-xs">Objectives with deviation from target requiring follow-up.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : ''}`}>
-                  {requiringAction}
-                </div>
-                <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
-                  {requiringAction} {requiringAction === 1 ? 'objective requires' : 'objectives require'} follow-up
-                </p>
-                <div className="mt-3">
-                  <Badge variant="outline" className={`font-normal text-[10px] ${requiringAction > 0 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-amber-50 dark:hover:bg-amber-950/40`}>
-                    {followupActionsCount} Follow-up Actions
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
-      })()}
-
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mt-2">
-        <div className="flex items-center gap-2 w-full max-w-sm relative">
-          <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
-          <Input 
-            placeholder="Search objectives..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 w-full"
-          />
-        </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Funnel className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground font-medium">Filter</span>
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="Success">Success</SelectItem>
-              <SelectItem value="Partially Achieved">Partially Achieved</SelectItem>
-              <SelectItem value="At Risk">At Risk</SelectItem>
-              <SelectItem value="Off Track">Off Track</SelectItem>
-              <SelectItem value="Missed">Missed</SelectItem>
-              <SelectItem value="No Review">No Review</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={processFilter} onValueChange={setProcessFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Process" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Processes</SelectItem>
-              {Array.from(new Set(data.map(d => d.process))).sort().map(p => (
-                <SelectItem key={p} value={p}>{p}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <BulkExportToolbar 
-        selectedIds={selectedIds} 
-        data={filteredData} 
-        columns={exportColumns} 
-        filename="objectives_export" 
-        onClearSelection={() => setSelectedIds([])} 
-      />
-      <ScrollableTableWrapper>
-        <Table className="min-w-full">
-          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 shadow-sm outline outline-1 outline-border">
+      {/* ── Scrollable Table Container (Fills Remaining Viewport) ── */}
+      <ScrollableTableWrapper className="flex-1 min-h-0">
+        <Table className="min-w-full" containerClassName="overflow-visible">
+          <TableHeader className="bg-slate-100 dark:bg-zinc-900 sticky top-0 z-20 border-b shadow-xs [&_th]:bg-slate-100 dark:[&_th]:bg-zinc-900">
             <TableRow>
               {/* 1. Selection checkbox */}
               <TableHead className="w-12 h-10 px-4">

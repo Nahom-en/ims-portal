@@ -460,9 +460,9 @@ export default function RiskRegisterPage() {
   };
 
   return (
-    <div className="flex-1 p-4 md:p-6 space-y-6 w-full max-w-[1600px] mx-auto relative">
-      {/* ── Page Header & Stats ── */}
-      <div className="flex flex-col gap-6">
+    <div className="flex-1 h-[calc(100vh-3.5rem)] flex flex-col p-4 md:p-6 overflow-hidden w-full max-w-[1600px] mx-auto relative">
+      {/* ── Fixed Top Controls (Stationary) ── */}
+      <div className="shrink-0 space-y-3 mb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Warning className="h-6 w-6 text-primary" />
@@ -512,27 +512,28 @@ export default function RiskRegisterPage() {
           const requiringAction = data.filter(d => d.isActive && d.requiresAction).length;
 
           return (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* Card 1: Total Active Risks */}
               <Card 
+                size="sm"
                 className="cursor-pointer transition-shadow hover:shadow-md"
                 onClick={() => setStatusFilter(statusFilter === "Active" ? "ALL" : "Active")}
               >
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Active Risks</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between pb-1 space-y-0">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Total Active Risks</CardTitle>
                   <TooltipProvider delayDuration={0}>
                     <Tooltip>
-                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-[200px] text-xs">Count of all currently open risks in the register.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{totalActive}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Active registered risks</p>
-                  <div className="mt-3">
+                <CardContent className="pt-0">
+                  <div className="text-xl font-bold">{totalActive}</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Active registered risks</p>
+                  <div className="mt-2">
                     <Badge variant="outline" className="font-normal text-[10px] bg-primary/5 text-primary border-primary/20 hover:bg-primary/5">
                       {totalActive} Active
                     </Badge>
@@ -542,28 +543,29 @@ export default function RiskRegisterPage() {
 
               {/* Card 2: High / Critical Risks */}
               <Card 
+                size="sm"
                 className={`cursor-pointer transition-shadow hover:shadow-md ${highCritical > 0 ? "bg-rose-50/30 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/20" : ""}`}
                 onClick={() => setStatusFilter(statusFilter === "Critical" ? "ALL" : "Critical")}
               >
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className={`text-sm font-medium ${highCritical > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'}`}>High / Critical Risks</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between pb-1 space-y-0">
+                  <CardTitle className={`text-xs font-medium ${highCritical > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'}`}>High / Critical Risks</CardTitle>
                   <TooltipProvider delayDuration={0}>
                     <Tooltip>
-                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-[200px] text-xs">Count of active risks where Risk Rating is High or Critical.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${highCritical > 0 ? 'text-rose-700 dark:text-rose-400' : ''}`}>
+                <CardContent className="pt-0">
+                  <div className={`text-xl font-bold ${highCritical > 0 ? 'text-rose-700 dark:text-rose-400' : ''}`}>
                     {highCritical}
                   </div>
-                  <p className="text-xs text-rose-600/80 dark:text-rose-400/80 mt-1">
+                  <p className="text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">
                     Require management attention
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <Badge variant="outline" className={`font-normal text-[10px] ${highCritical > 0 ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-rose-50 dark:hover:bg-rose-950/40`}>
                       {highCritical} High / Critical
                     </Badge>
@@ -573,28 +575,29 @@ export default function RiskRegisterPage() {
 
               {/* Card 3: Risks Requiring Action */}
               <Card 
+                size="sm"
                 className={`cursor-pointer transition-shadow hover:shadow-md ${requiringAction > 0 ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900/20" : ""}`}
                 onClick={() => setStatusFilter(statusFilter === "Requiring Action" ? "ALL" : "Requiring Action")}
               >
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className={`text-sm font-medium ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground'}`}>Risks Requiring Action</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between pb-1 space-y-0">
+                  <CardTitle className={`text-xs font-medium ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : 'text-muted-foreground'}`}>Risks Requiring Action</CardTitle>
                   <TooltipProvider delayDuration={0}>
                     <Tooltip>
-                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
+                      <TooltipTrigger render={<span tabIndex={0} className="inline-flex cursor-help"><Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" /></span>}></TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-[200px] text-xs">Count of active risks with pending or overdue mitigation actions.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : ''}`}>
+                <CardContent className="pt-0">
+                  <div className={`text-xl font-bold ${requiringAction > 0 ? 'text-amber-700 dark:text-amber-500' : ''}`}>
                     {requiringAction}
                   </div>
-                  <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
+                  <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-0.5">
                     Pending or overdue mitigation
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <Badge variant="outline" className={`font-normal text-[10px] ${requiringAction > 0 ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800' : 'bg-muted text-muted-foreground border-border'} hover:bg-amber-50 dark:hover:bg-amber-950/40`}>
                       {requiringAction} Requiring Action
                     </Badge>
@@ -604,64 +607,64 @@ export default function RiskRegisterPage() {
             </div>
           );
         })()}
-      </div>
 
-      {/* ── Search & Filter Controls ── */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mt-2">
-        <div className="flex items-center gap-2 w-full max-w-sm relative">
-          <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
-          <Input 
-            placeholder="Search risks, owners, mitigation..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 w-full h-9 text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Funnel className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground font-medium">Filter</span>
+        {/* ── Search & Filter Controls ── */}
+        <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+          <div className="flex items-center gap-2 w-full max-w-sm relative">
+            <MagnifyingGlass className="absolute left-3 text-muted-foreground h-4 w-4" />
+            <Input 
+              placeholder="Search risks, owners, mitigation..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 w-full h-9 text-sm"
+            />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] h-9 text-sm">
-              <SelectValue placeholder="Risk Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Risks</SelectItem>
-              <SelectItem value="Active">Active Only</SelectItem>
-              <SelectItem value="Critical">High / Critical</SelectItem>
-              <SelectItem value="Requiring Action">Requiring Action</SelectItem>
-              <SelectItem value="Closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Funnel className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground font-medium">Filter</span>
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[160px] h-9 text-sm">
+                <SelectValue placeholder="Risk Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Risks</SelectItem>
+                <SelectItem value="Active">Active Only</SelectItem>
+                <SelectItem value="Critical">High / Critical</SelectItem>
+                <SelectItem value="Requiring Action">Requiring Action</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={ratingFilter} onValueChange={setRatingFilter}>
-            <SelectTrigger className="w-[140px] h-9 text-sm">
-              <SelectValue placeholder="Rating" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Ratings</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem>
-              <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={ratingFilter} onValueChange={setRatingFilter}>
+              <SelectTrigger className="w-[140px] h-9 text-sm">
+                <SelectValue placeholder="Rating" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Ratings</SelectItem>
+                <SelectItem value="Critical">Critical</SelectItem>
+                <SelectItem value="High">High</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
+        <BulkExportToolbar 
+          selectedIds={selectedIds} 
+          data={sortedData} 
+          columns={exportColumns} 
+          filename="risks_export" 
+          onClearSelection={() => setSelectedIds([])} 
+        />
       </div>
 
-      <BulkExportToolbar 
-        selectedIds={selectedIds} 
-        data={sortedData} 
-        columns={exportColumns} 
-        filename="risks_export"
-        onClearSelection={() => setSelectedIds([])} 
-      />
-
-      {/* ── Risk Register Table Grouped by Process ── */}
-      <ScrollableTableWrapper>
-        <Table className="min-w-full">
-          <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10 border-b">
+      {/* ── Risk Register Table Grouped by Process (Fills Remaining Viewport) ── */}
+      <ScrollableTableWrapper className="flex-1 min-h-0">
+        <Table className="min-w-full" containerClassName="overflow-visible">
+          <TableHeader className="bg-slate-100 dark:bg-zinc-900 sticky top-0 z-20 border-b shadow-xs [&_th]:bg-slate-100 dark:[&_th]:bg-zinc-900">
             <TableRow>
               {/* 1. Selection checkbox */}
               <TableHead className="w-12 h-10 px-4">
@@ -735,7 +738,7 @@ export default function RiskRegisterPage() {
                   /* ── Process Group Header Row (Toggle & Group Checkbox) ── */
                   <TableRow
                     key={`group-${processName}`}
-                    className="bg-muted/80 dark:bg-zinc-900/80 hover:bg-muted dark:hover:bg-zinc-900 cursor-pointer select-none border-t border-b transition-colors"
+                    className="bg-slate-200/90 dark:bg-zinc-800/90 hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer select-none border-t border-b transition-colors sticky top-[40px] z-10 backdrop-blur shadow-xs [&_td]:bg-slate-200/90 dark:[&_td]:bg-zinc-800/90"
                     onClick={() => toggleProcess(processName)}
                   >
                     <TableCell colSpan={10} className="py-2.5 px-4">
